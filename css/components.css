@@ -143,6 +143,15 @@
   opacity: 0.9;
 }
 
+.form-input:disabled,
+.form-select:disabled {
+  background: var(--clr-bg-01);
+  border-color: var(--clr-border-soft);
+  color: var(--clr-text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .form-input-wrap {
   position: relative;
 }

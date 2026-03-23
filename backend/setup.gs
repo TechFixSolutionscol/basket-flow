@@ -148,6 +148,18 @@ function _seedConfiguracion(ss) {
     ['consig.umbralUnidades',   '5',                'Cantidad mínima de canasillas para generar alerta',          new Date()],
     ['consig.emailAdmin',       '',                 'Email del administrador para recibir alertas de consignación',new Date()],
     ['consig.emailCopia',       '',                 'Email en copia (CC) para alertas de consignación',           new Date()],
+    // Datos de Empresa (Sprint 8)
+    ['empresa.nombre',          'FRESQUERIA MYN S.A.S.', 'Nombre legal de la compañía',                      new Date()],
+    ['empresa.nit',             '901420712',        'NIT / Identificación Tributaria',                        new Date()],
+    ['empresa.direccion',       'CL 33 NO 41 66 BG 111', 'Dirección física principal',                        new Date()],
+    ['empresa.ciudad',          'Itagüí / Antioquia', 'Ciudad y departamento',                                new Date()],
+    ['empresa.pais',            'Colombia',         'País de operación',                                      new Date()],
+    ['empresa.telefono',        '324 6468264',      'Teléfono fijo',                                          new Date()],
+    ['empresa.movil',           '324 6468264',      'Teléfono móvil',                                         new Date()],
+    ['empresa.email',           'contabilidad@fresqueria.com', 'Correo electrónico corporativo',             new Date()],
+    ['empresa.web',             'https://lcmoon.com.co/', 'Sitio web corporativo',                       new Date()],
+    ['empresa.moneda',          'COP',              'Moneda base del sistema',                                new Date()],
+    ['empresa.logoId',          '',                 'ID de Google Drive del logo (transparente recomendado)', new Date()],
   ];
 
   

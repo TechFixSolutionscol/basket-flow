@@ -9,20 +9,31 @@ const PDF = (() => {
 
   // ── Shared header ──────────────────────────────────────
   function _addHeader(doc, title, subtitle = '') {
+    const empNombre = Configuracion.get('empresa.nombre') || 'BASKET FLOW';
+    const empNit    = Configuracion.get('empresa.nit');
+    const empDir    = Configuracion.get('empresa.direccion');
+    const empTel    = Configuracion.get('empresa.telefono');
+
     // Cyan accent bar top
     doc.setFillColor(0, 210, 180);
     doc.rect(0, 0, 210, 8, 'F');
 
-    // Logo + title
-    doc.setFontSize(18);
+    // Company Identity
+    doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(8, 12, 16);
-    doc.text('BASKET FLOW', 14, 22);
+    doc.text(empNombre.toUpperCase(), 14, 22);
 
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 120, 140);
-    doc.text('Sistema de Gestión de Operaciones de Báscula', 14, 28);
+    
+    let info = '';
+    if (empNit) info += `NIT: ${empNit}  `;
+    if (empDir) info += `DIRECCIÓN: ${empDir}  `;
+    if (empTel) info += `TEL: ${empTel}`;
+    
+    doc.text(info || 'Sistema de Gestión de Operaciones de Báscula', 14, 28);
 
     // Title block
     doc.setFontSize(13);
@@ -48,6 +59,8 @@ const PDF = (() => {
   // ── Shared footer ──────────────────────────────────────
   function _addFooter(doc) {
     const pageH = doc.internal.pageSize.getHeight();
+    const empNombre = Configuracion.get('empresa.nombre') || 'BASKET FLOW';
+    
     doc.setDrawColor(200, 210, 220);
     doc.setLineWidth(0.2);
     doc.line(14, pageH - 14, 196, pageH - 14);
@@ -56,7 +69,7 @@ const PDF = (() => {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(150, 160, 170);
     doc.text(`Generado el ${Utils.formatDateTime(new Date())}`, 14, pageH - 9);
-    doc.text('Basket Flow — Sistema de Control de Báscula', 196, pageH - 9, { align: 'right' });
+    doc.text(`${empNombre} — Control de Operaciones`, 196, pageH - 9, { align: 'right' });
   }
 
   // ── Signature block ──────────────────────────────────────

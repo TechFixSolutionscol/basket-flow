@@ -5,7 +5,7 @@ const App = (() => {
   let _pollingInterval = null;
   let _masters = null;
 
-  const VIEWS = ['dashboard','nueva-entrada','entradas','devoluciones','canasillas','consignacion','bajas','reportes','log','maestros','usuarios'];
+  const VIEWS = ['dashboard','nueva-entrada','entradas','devoluciones','canasillas','consignacion','bajas','reportes','log','maestros','usuarios','configuracion'];
 
   // ── Initialize ─────────────────────────────────────────────────────────
   async function init() {
@@ -23,8 +23,18 @@ const App = (() => {
     _applySecurity(session);
     _startClock();
     await _loadMasters();
+    _updateCompanyBranding();
     await navigate('dashboard');
     _startPolling();
+  }
+
+  function _updateCompanyBranding() {
+     const empNombre = (getMasters().config || []).find(r => r.Clave === 'empresa.nombre')?.Valor || 'BASKET FLOW';
+     const logoEl = document.querySelector('.topbar-logo');
+     if (logoEl) {
+        logoEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> ${empNombre}`;
+     }
+     _updateBreadcrumb(document.querySelector('.nav-item.active')?.dataset.view || 'dashboard');
   }
 
   // ── SPA Navigation ─────────────────────────────────────────────────────
@@ -57,6 +67,7 @@ const App = (() => {
       case 'log':            await Log.init();        break;
       case 'maestros':       await Maestros.init();   break;
       case 'usuarios':       await Usuarios.init();   break;
+      case 'configuracion':  await Configuracion.init(); break;
     }
   }
 
@@ -170,11 +181,13 @@ const App = (() => {
     'log':          'Log de Actividad',
     'maestros':     'Maestros',
     'usuarios':     'Gestión de Usuarios',
+    'configuracion':'Configuración de Empresa',
   };
 
   function _updateBreadcrumb(view) {
     const el = document.getElementById('topbar-breadcrumb');
-    if (el) el.innerHTML = `<span>Basket Flow</span> / ${VIEW_NAMES[view] || view}`;
+    const empNombre = (getMasters().config || []).find(r => r.Clave === 'empresa.nombre')?.Valor || 'Basket Flow';
+    if (el) el.innerHTML = `<span>${empNombre}</span> / ${VIEW_NAMES[view] || view}`;
   }
 
   // ── Logout ───────────────────────────────────────────────────────────

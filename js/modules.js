@@ -1410,3 +1410,156 @@ const Bajas = (() => {
   }
   return { init, abrirModal, guardar };
 })();
+
+// ===== BASKET FLOW — CONFIGURACIÓN MODULE =====
+const Configuracion = (() => {
+  let _currentConfig = {};
+
+  async function init() {
+    _initTabs();
+    await load();
+    _setupEvents();
+    toggleEdit(false);
+  }
+
+  function _initTabs() {
+    document.querySelectorAll('[data-config-tab]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('[data-config-tab]').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.config-tab-content').forEach(c => c.style.display = 'none');
+        tab.classList.add('active');
+        const targetId = `config-tab-${tab.dataset.configTab}`;
+        if (document.getElementById(targetId)) document.getElementById(targetId).style.display = 'block';
+      });
+    });
+  }
+
+  async function load() {
+    const masters = App.getMasters();
+    const rows = masters.config || [];
+    _currentConfig = {};
+    rows.forEach(r => { _currentConfig[r.Clave] = r.Valor; });
+
+    // Llenar campos Empresa
+    const keys = [
+      'empresa.nombre','empresa.nit','empresa.direccion','empresa.ciudad',
+      'empresa.pais','empresa.moneda','empresa.telefono','empresa.movil',
+      'empresa.email','empresa.web','empresa.logoId'
+    ];
+    keys.forEach(k => {
+      const el = document.getElementById(`conf-${k.replace(/\./g, '-')}`);
+      if (el) el.value = _currentConfig[k] || '';
+    });
+
+    // Llenar campos Sistema
+    const sysKeys = {
+      'consig.diasAlerta': 'conf-sys-diasAlerta',
+      'consig.emailAdmin': 'conf-sys-emailAdmin',
+      'consig.emailCopia': 'conf-sys-emailCopia',
+      'stock_minimo_empresa':'conf-sys-stockMin'
+    };
+    Object.entries(sysKeys).forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = _currentConfig[key] || '';
+    });
+
+    updatePreview();
+    toggleEdit(false);
+  }
+
+  function _setupEvents() {
+    document.getElementById('config-edit-btn')?.addEventListener('click', () => toggleEdit(true));
+    document.getElementById('config-cancel-btn')?.addEventListener('click', () => {
+       load(); // Recargar datos originales
+       toggleEdit(false);
+    });
+    document.getElementById('config-save-btn')?.addEventListener('click', save);
+  }
+
+  function toggleEdit(editable) {
+    const container = document.getElementById('view-configuracion');
+    if (!container) return;
+
+    // Tocar inputs y selects
+    container.querySelectorAll('input, select').forEach(el => {
+      el.disabled = !editable;
+    });
+
+    // Tocar botones
+    const btnEdit = document.getElementById('config-edit-btn');
+    const groupBtns = document.getElementById('config-editing-btns');
+
+    if (btnEdit && groupBtns) {
+      btnEdit.style.display = editable ? 'none' : 'inline-flex';
+      groupBtns.style.display = editable ? 'flex' : 'none';
+    }
+  }
+
+  function updatePreview() {
+    const logoId = document.getElementById('conf-emp-logoId')?.value?.trim();
+    const img = document.getElementById('logo-preview-img');
+    const placeholder = document.getElementById('logo-preview-placeholder');
+    
+    if (logoId && logoId.length > 5) { // ID de Drive puede ser corto en algunos casos, mantenlo flexible
+      let id = logoId;
+      if (logoId.includes('id=')) id = logoId.split('id=')[1].split('&')[0];
+      else if (logoId.includes('/d/')) id = logoId.split('/d/')[1].split('/')[0];
+
+      if (img && placeholder) {
+        img.src = `https://lh3.googleusercontent.com/u/0/d/${id}=w400-h200-iv`;
+        img.onload = () => { img.style.display = 'block'; placeholder.style.display = 'none'; };
+        img.onerror = () => { img.style.display = 'none'; placeholder.style.display = 'block'; placeholder.textContent = 'Sin acceso o ID inválido'; };
+      }
+    } else {
+      if (img && placeholder) { img.style.display = 'none'; placeholder.style.display = 'block'; placeholder.textContent = 'Visualización del Logo'; }
+    }
+  }
+
+  async function save() {
+    const payload = {};
+    
+    // Recopilar campos Empresa
+    const keys = [
+      'empresa.nombre','empresa.nit','empresa.direccion','empresa.ciudad',
+      'empresa.pais','empresa.moneda','empresa.telefono','empresa.movil',
+      'empresa.email','empresa.web','empresa.logoId'
+    ];
+    keys.forEach(k => {
+      const val = document.getElementById(`conf-${k.replace(/\./g, '-')}`)?.value || '';
+      payload[k] = val;
+    });
+
+    // Recopilar campos Sistema
+    const sysKeys = {
+      'consig.diasAlerta': 'conf-sys-diasAlerta',
+      'consig.emailAdmin': 'conf-sys-emailAdmin',
+      'consig.emailCopia': 'conf-sys-emailCopia',
+      'stock_minimo_empresa':'conf-sys-stockMin'
+    };
+    Object.entries(sysKeys).forEach(([key, id]) => {
+      const val = document.getElementById(id)?.value || '';
+      payload[key] = val;
+    });
+
+    const btn = document.getElementById('config-save-btn');
+    btn.disabled = true;
+    btn.textContent = 'GUARDANDO...';
+
+    const res = await API.post('saveConfig', payload);
+    btn.disabled = false;
+    btn.textContent = 'GUARDAR CAMBIOS';
+
+    if (res.ok) {
+      Utils.showToast('Configuración actualizada con éxito','success');
+      App.invalidateMasters();
+      await App.init(); // Recargar App (masters, branding, etc)
+      toggleEdit(false);
+    } else {
+      Utils.showToast(res.error, 'error');
+    }
+  }
+
+  function get(key) { return _currentConfig[key] || ''; }
+
+  return { init, updatePreview, save, get, toggleEdit };
+})();

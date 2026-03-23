@@ -240,6 +240,10 @@
 
       <div class="sidebar-section" data-role="supervisor">
         <span class="sidebar-section-label">CONFIGURACIÓN</span>
+        <div class="nav-item" data-view="configuracion" data-role="admin">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Mi Empresa
+        </div>
         <div class="nav-item" data-view="maestros" data-role="admin">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
           Maestros
@@ -929,6 +933,133 @@
           <div class="data-table-footer">
             <span id="log-pagination-info" style="color:var(--clr-text-muted);font-size:0.78rem"></span>
             <div class="pagination" id="log-pagination"></div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ── CONFIGURACION ── -->
+      <section id="view-configuracion" style="display:none" class="stagger-in">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title" id="config-title-display">Mi Empresa</h1>
+            <p class="page-subtitle">Personalización de identidad y recibos</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="config-edit-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              EDITAR
+            </button>
+            <div id="config-editing-btns" style="display:none; gap: var(--sp-2);">
+              <button class="btn btn-secondary" id="config-cancel-btn">CANCELAR</button>
+              <button class="btn btn-primary" id="config-save-btn">GUARDAR CAMBIOS</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" data-config-tab="general">Información General</div>
+          <div class="tab" data-config-tab="sistema">Configuración</div>
+        </div>
+
+        <div id="config-tab-general" class="config-tab-content">
+          <div class="card">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-8);">
+              <!-- Columna Izquierda -->
+              <div class="form-section">
+                <h3 style="margin-bottom:var(--sp-4); color:var(--clr-accent-cyan); font-size:0.8rem; text-transform:uppercase; letter-spacing:1.5px; font-family:var(--font-display)">Identidad Legal</h3>
+                <div class="form-group" style="margin-bottom:var(--sp-4)">
+                  <label class="form-label">Nombre de la compañía</label>
+                  <input type="text" id="conf-emp-nombre" class="form-input" placeholder="Ej. Basket Flow S.A.S.">
+                </div>
+                <div class="form-group" style="margin-bottom:var(--sp-4)">
+                  <label class="form-label">NIF / NIT</label>
+                  <input type="text" id="conf-emp-nit" class="form-input" placeholder="901420712">
+                </div>
+                <div class="form-group" style="margin-bottom:var(--sp-4)">
+                  <label class="form-label">Dirección</label>
+                  <input type="text" id="conf-emp-direccion" class="form-input" placeholder="Ej. CL 33 NO 41 66 BG 111">
+                </div>
+                <div class="form-row" style="margin-bottom:var(--sp-4)">
+                  <div class="form-group">
+                    <label class="form-label">Ciudad / Depto</label>
+                    <input type="text" id="conf-emp-ciudad" class="form-input" placeholder="Ej. Itagüí / Antioquia">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">País</label>
+                    <input type="text" id="conf-emp-pais" class="form-input" placeholder="Colombia">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Moneda base</label>
+                  <select id="conf-emp-moneda" class="form-select">
+                    <option value="COP">COP (Peso Colombiano)</option>
+                    <option value="USD">USD (Dólar)</option>
+                    <option value="EUR">EUR (Euro)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Columna Derecha -->
+              <div class="form-section">
+                <h3 style="margin-bottom:var(--sp-4); color:var(--clr-accent-cyan); font-size:0.8rem; text-transform:uppercase; letter-spacing:1.5px; font-family:var(--font-display)">Contacto y Logo</h3>
+                <div class="form-row" style="margin-bottom:var(--sp-4)">
+                  <div class="form-group">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" id="conf-emp-telefono" class="form-input" placeholder="324 6468264">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Móvil</label>
+                    <input type="text" id="conf-emp-movil" class="form-input" placeholder="324 6468264">
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:var(--sp-4)">
+                  <label class="form-label">Correo electrónico</label>
+                  <input type="email" id="conf-emp-email" class="form-input" placeholder="contacto@empresa.com">
+                </div>
+                <div class="form-group" style="margin-bottom:var(--sp-4)">
+                  <label class="form-label">Sitio web</label>
+                  <input type="url" id="conf-emp-web" class="form-input" placeholder="https://lcmoon.com.co/">
+                </div>
+                
+                <div style="margin-top:var(--sp-6); padding:var(--sp-4); border:1px solid var(--clr-border); border-radius:var(--radius-md); background:var(--clr-bg-03)">
+                  <div class="form-group">
+                    <label class="form-label">ID Logo (Drive)</label>
+                    <div class="form-input-wrap">
+                      <input type="text" id="conf-emp-logoId" class="form-input" placeholder="Pega el ID del archivo..." oninput="Configuracion.updatePreview()">
+                    </div>
+                  </div>
+                  <div id="logo-preview-container" style="margin-top:var(--sp-4); min-height:80px; display:flex; align-items:center; justify-content:center; border:1px dashed var(--clr-border); border-radius:var(--radius-sm); position:relative; overflow:hidden">
+                    <div id="logo-preview-placeholder" style="color:var(--clr-text-muted); font-size:0.75rem; font-family:var(--font-mono)">Visualización del Logo</div>
+                    <img id="logo-preview-img" src="" style="max-height:60px; display:none; filter: drop-shadow(0 0 5px rgba(0,0,0,0.2))">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="config-tab-sistema" class="config-tab-content" style="display:none">
+          <div class="card">
+            <h3 style="margin-bottom:var(--sp-6); color:var(--clr-accent-cyan); font-size:0.8rem; text-transform:uppercase; letter-spacing:1.5px; font-family:var(--font-display)">Parámetros del Sistema</h3>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--sp-6);">
+              <div class="form-group">
+                <label class="form-label">Días alerta consignación</label>
+                <input type="number" id="conf-sys-diasAlerta" class="form-input" min="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email Administrador (Notificaciones)</label>
+                <input type="email" id="conf-sys-emailAdmin" class="form-input" placeholder="admin@empresa.com">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Stock mínimo empresa (Canasillas)</label>
+                <input type="number" id="conf-sys-stockMin" class="form-input" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email Copia (CC)</label>
+                <input type="email" id="conf-sys-emailCopia" class="form-input">
+              </div>
+            </div>
           </div>
         </div>
       </section>
