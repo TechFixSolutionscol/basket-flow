@@ -1230,180 +1230,183 @@ const Consignacion = (() => {
 
   async function init() {
     _initTabs();
-    await cargarResumen();
+    await _cargarCatalogos();
+    const activeTab = document.querySelector('.tab.active[data-consig-tab]')?.dataset.consigTab || 'Clientes';
+    if (activeTab === 'Clientes') await cargarResumen('Cliente');
+    else if (activeTab === 'Proveedores') await cargarResumen('Proveedor');
+  }
 
-    // Rellenar selects
-    const rp = await API.get('getMaestros');
-    if (rp.ok) {
-      const ms = {
-        clientes: rp.clientes || [],
-        canasillas: rp.canasillas || []
-      };
-
-      const sc = document.getElementById('mc-cliente');
-      const cs = document.getElementById('mc-canasilla');
-      const hc = document.getElementById('consig-hist-cliente');
-
-      if (sc) sc.innerHTML = '<option value="">Seleccione cliente...</option>' +
-        ms.clientes.filter(c=>c.Activo).map(c => `<option value="${c.ID}">${Utils.sanitize(c.Nombre)}</option>`).join('');
-
-      if (cs) cs.innerHTML = '<option value="">Seleccione canasilla...</option>' +
-        ms.canasillas.filter(c=>c.Activo).map(c => `<option value="${c.ID}">${Utils.sanitize(c.Descripcion)} (${c.PesoUnitario} kg)</option>`).join('');
-
-      if (hc) hc.innerHTML = '<option value="">Todos los clientes</option>' +
-        ms.clientes.map(c => `<option value="${c.ID}">${Utils.sanitize(c.Nombre)}</option>`).join('');
+  async function _cargarCatalogos() {
+    const masters = App.getMasters();
+    if (masters) {
+      const selCan = document.getElementById('mc-canasilla');
+      if (selCan) selCan.innerHTML = '<option value="">Seleccione...</option>' +
+        (masters.canasillas || []).filter(c=>c.Activo).map(c => `<option value="${c.ID}">${Utils.sanitize(c.Descripcion)} (${c.PesoUnitario} kg)</option>`).join('');
+      const hsTipo = document.getElementById('consig-hist-tipo-entidad');
+      if (hsTipo) { hsTipo.onchange = () => _populateHistEntidades(); _populateHistEntidades(); }
     }
+  }
+
+  function _populateHistEntidades() {
+    const tipo = document.getElementById('consig-hist-tipo-entidad')?.value;
+    const sel  = document.getElementById('consig-hist-entidad');
+    if (!sel || !tipo) return;
+    const masters = App.getMasters();
+    const items = tipo === 'Cliente' ? (masters.clientes || []) : (masters.proveedores || []);
+    sel.innerHTML = '<option value="">Todas las entidades...</option>' +
+      items.map(i => `<option value="${i.ID}">${Utils.sanitize(i.Nombre)}</option>`).join('');
   }
 
   function _initTabs() {
     document.querySelectorAll('[data-consig-tab]').forEach(tab => {
-      tab.addEventListener('click', () => {
+      const newTab = tab.cloneNode(true);
+      if (tab.parentNode) tab.parentNode.replaceChild(newTab, tab);
+      newTab.addEventListener('click', () => {
         document.querySelectorAll('[data-consig-tab]').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.consig-tab-content').forEach(c => c.style.display = 'none');
-        tab.classList.add('active');
-        const id = `consig-tab-${tab.dataset.consigTab}`;
-        const content = document.getElementById(id);
-        if (content) content.style.display = 'block';
-
-        if (tab.dataset.consigTab === 'Historial') cargarHistorial();
-        else cargarResumen();
+        newTab.classList.add('active');
+        const tabName = newTab.dataset.consigTab;
+        const target = document.getElementById(`consig-tab-${tabName}`);
+        if (target) target.style.display = 'block';
+        if (tabName === 'Historial') cargarHistorial();
+        else if (tabName === 'Clientes') cargarResumen('Cliente');
+        else if (tabName === 'Proveedores') cargarResumen('Proveedor');
       });
     });
   }
 
-  async function cargarResumen() {
-    const tbody = document.getElementById('consig-resumen-body');
+  async function cargarResumen(entidadTipo) {
+    const tbody = document.getElementById(entidadTipo === 'Cliente' ? 'consig-clientes-body' : 'consig-proveedores-body');
     if (!tbody) return;
-    tbody.innerHTML = Array(3).fill('<tr>' + Array(8).fill('<td><div class="skeleton skeleton-text"></div></td>').join('') + '</tr>').join('');
-
+    tbody.innerHTML = '<tr><td colspan="8"><div class="skeleton-text"></div></td></tr>';
     const res = await API.get('getResumenConsignacion');
-    if (!res.ok) { Utils.showToast('Error cargando consignaciones.', 'error'); return; }
-
+    if (!res.ok) return;
     _diasAlerta = res.diasAlerta || 15;
-
-    tbody.innerHTML = (res.resumen || []).map(r => {
-      const color = r.diasSinRetorno >= _diasAlerta * 2 ? 'var(--clr-danger)'
-                  : r.diasSinRetorno >= _diasAlerta     ? 'var(--clr-warning)'
-                  : 'var(--clr-success)';
-
-      const bg = r.diasSinRetorno >= _diasAlerta * 2 ? 'rgba(239, 68, 68, 0.15)'
-               : r.diasSinRetorno >= _diasAlerta     ? 'rgba(245, 158, 11, 0.15)'
-               : 'rgba(16, 185, 129, 0.15)';
-
-      const etiqueta = r.diasSinRetorno >= _diasAlerta * 2 ? 'CRÍTICO' : r.diasSinRetorno >= _diasAlerta ? 'ALERTA' : 'OK';
-
-      return `
-      <tr>
-        <td style="font-weight:600">${Utils.sanitize(r.clienteNombre)}</td>
-        <td class="mono" style="font-size:0.75rem;color:var(--clr-text-muted)">${Utils.sanitize(r.tipo)}</td>
+    const items = (res.resumen || []).filter(r => r.entidadTipo === entidadTipo);
+    tbody.innerHTML = items.map(r => {
+      const crit = r.diasSinRetorno >= _diasAlerta * 2 ? 'danger' : r.diasSinRetorno >= _diasAlerta ? 'warning' : 'success';
+      const label = r.diasSinRetorno >= _diasAlerta * 2 ? 'CRÍTICO' : r.diasSinRetorno >= _diasAlerta ? 'ALERTA' : 'OK';
+      return `<tr>
+        <td style="font-weight:600">${Utils.sanitize(r.entidadNombre)}</td>
+        <td class="mono" style="font-size:0.75rem">${Utils.sanitize(r.tipo)}</td>
         <td style="text-align:center">${r.enviadas}</td>
         <td style="text-align:center">${r.retornadas}</td>
-        <td style="text-align:center;font-weight:700;font-size:1.05rem;color:var(--clr-accent-cyan)">${r.saldo}</td>
-        <td style="text-align:center">${r.diasSinRetorno}</td>
-        <td style="text-align:center">
-          <span style="background:${bg};color:${color};padding:2px 8px;border-radius:12px;font-size:0.7rem;font-weight:700">${etiqueta}</span>
-        </td>
-        <td>
-          <button class="btn btn-ghost btn-sm" onclick="Consignacion.abrirModal('RETORNO', '${Utils.sanitize(r.clienteId)}', '${Utils.sanitize(r.tipoCanasillaId)}')">Devolución</button>
-        </td>
+        <td style="text-align:center;font-weight:700;color:var(--clr-accent-cyan)">${r.saldo}</td>
+        <td style="text-align:center">${entidadTipo==='Cliente'?r.diasSinRetorno:(r.ultimoRetorno?Utils.formatDate(r.ultimoRetorno):'—')}</td>
+        ${entidadTipo==='Cliente'?`<td style="text-align:center"><span class="badge badge-${crit}">${label}</span></td>`:''}
+        <td><button class="btn btn-ghost btn-sm" onclick="Consignacion.abrirModal('RETORNO', '${entidadTipo}', '${r.entidadId}', '${r.tipoCanasillaId}')">Devolución</button></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--clr-text-muted);padding:var(--sp-6)">Sin saldos pendientes en clientes.</td></tr>';
+    }).join('') || `<tr><td colspan="8" style="text-align:center;padding:var(--sp-6);color:var(--clr-text-muted)">Sin saldos pendientes.</td></tr>`;
   }
 
   async function cargarHistorial() {
     const tbody = document.getElementById('consig-historial-body');
     if (!tbody) return;
-    tbody.innerHTML = Array(3).fill('<tr>' + Array(7).fill('<td><div class="skeleton skeleton-text"></div></td>').join('') + '</tr>').join('');
-
-    const clienteId = document.getElementById('consig-hist-cliente')?.value || '';
-    const tipo      = document.getElementById('consig-hist-tipo')?.value || '';
-
-    const res = await API.get('getHistorialConsignacion', { clienteId, tipo, size: 100 });
-    if (!res.ok) { Utils.showToast('Error cargando historial.', 'error'); return; }
-
-    tbody.innerHTML = (res.items || []).map(m => `
-      <tr>
-        <td class="mono" style="font-size:0.75rem">${Utils.formatDateTime(m.Timestamp)}</td>
-        <td><span class="badge ${m.Tipo==='ENVIO'?'badge-inactive':m.Tipo==='RETORNO'?'badge-active':'badge-danger'}">${m.Tipo}</span></td>
-        <td style="font-weight:600">${Utils.sanitize(m.ClienteNombre)}</td>
-        <td style="font-size:0.8rem;color:var(--clr-text-muted)">${Utils.sanitize(m.TipoCanasillaNombre)}</td>
-        <td style="font-weight:700">${m.Cantidad}</td>
-        <td class="mono" style="font-size:0.75rem">${Utils.sanitize(m.Referencia||'—')}</td>
-        <td style="font-size:0.8rem">${Utils.sanitize(m.UsuarioNombre)}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--clr-text-muted);padding:var(--sp-5)">Sin movimientos.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton-text"></div></td></tr>';
+    const entidadTipo = document.getElementById('consig-hist-tipo-entidad')?.value || 'Cliente';
+    const entidadId   = document.getElementById('consig-hist-entidad')?.value || '';
+    const tipo        = document.getElementById('consig-hist-tipo-mvt')?.value || '';
+    const res = await API.get('getHistorialConsignacion', { entidadId, entidadTipo, tipo });
+    if (!res.ok) return;
+    tbody.innerHTML = (res.items || []).map(m => `<tr>
+      <td class="mono" style="font-size:0.75rem">${Utils.formatDateTime(m.Timestamp)}</td>
+      <td><span class="badge ${m.Type==='ENVIO'?'badge-inactive':'badge-active'}">${m.Tipo}</span></td>
+      <td>${Utils.sanitize(m.EntidadNombre)} <small style="display:block;color:grey">${m.EntidadTipo}</small></td>
+      <td>${Utils.sanitize(m.TipoCanasillaNombre)}</td>
+      <td style="font-weight:700">${m.Cantidad}</td>
+      <td class="mono" style="font-size:0.75rem">${Utils.sanitize(m.Referencia||'—')}</td>
+      <td>${Utils.sanitize(m.UsuarioNombre)}</td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:var(--sp-5);color:var(--clr-text-muted)">Sin movimientos.</td></tr>';
   }
 
-  function abrirModal(tipo, clienteId = '', tipoCanasillaId = '') {
+  function abrirModal(tipo, entidadTipo = 'Cliente', entidadId = '', tipoCanasillaId = '') {
     const modal = document.getElementById('modal-consig');
-    const title = document.getElementById('modal-consig-title');
-    const btn   = document.getElementById('mc-save-btn');
     if (!modal) return;
-
-    document.getElementById('mc-tipo').value       = tipo;
-    document.getElementById('mc-cliente').value    = clienteId;
-    document.getElementById('mc-canasilla').value  = tipoCanasillaId;
-    document.getElementById('mc-cantidad').value   = '';
+    document.getElementById('mc-tipo').value = tipo;
+    document.getElementById('mc-entidad-tipo').value = entidadTipo;
+    const masters = App.getMasters();
+    const items = entidadTipo === 'Cliente' ? (masters.clientes || []) : (masters.proveedores || []);
+    document.getElementById('mc-entidad').innerHTML = '<option value="">Seleccione...</option>' +
+      items.filter(i=>i.Activo).map(i => `<option value="${i.ID}">${Utils.sanitize(i.Nombre)}</option>`).join('');
+    document.getElementById('mc-entidad').value = entidadId;
+    document.getElementById('mc-canasilla').value = tipoCanasillaId;
+    document.getElementById('mc-cantidad').value = '';
     document.getElementById('mc-referencia').value = '';
-    document.getElementById('mc-notas').value      = '';
-
-    if (tipo === 'ENVIO') {
-      title.textContent   = 'Entregar Canasillas a Cliente';
-      btn.textContent     = 'Registrar Envío';
-      btn.className       = 'btn btn-primary';
-    } else if (tipo === 'RETORNO') {
-      title.textContent   = 'Recibir Canasillas de Cliente';
-      btn.textContent     = 'Registrar Retorno';
-      btn.className       = 'btn btn-secondary';
-    }
-
+    document.getElementById('mc-notas').value = '';
+    document.getElementById('mc-entidad-label').textContent = `${entidadTipo} *`;
+    document.getElementById('modal-consig-title').textContent = `${tipo==='ENVIO'?'Suministrar':'Recibir'} de ${entidadTipo}`;
     modal.style.display = 'flex';
   }
 
   async function guardar() {
-    const tipo            = document.getElementById('mc-tipo').value;
-    const clienteId       = document.getElementById('mc-cliente').value;
-    const tipoCanasillaId = document.getElementById('mc-canasilla').value;
-    const cantidad        = parseInt(document.getElementById('mc-cantidad').value) || 0;
-    const referencia      = document.getElementById('mc-referencia').value;
-    const notas           = document.getElementById('mc-notas').value;
-
-    if (!clienteId || !tipoCanasillaId || cantidad <= 0) {
-      Utils.showToast('Complete cliente, canasilla y cantidad válida.', 'warning');
-      return;
-    }
-
-    const btn = document.getElementById('mc-save-btn');
-    const oldText = btn.textContent;
-    btn.disabled = true; btn.textContent = 'Guardando...';
-
-    const res = await API.post('registrarMovimientoConsignacion', {
-      tipo, clienteId, tipoCanasillaId, cantidad, referencia, notas
-    });
-
-    btn.disabled = false; btn.textContent = oldText;
-
+    const payload = {
+      tipo: document.getElementById('mc-tipo').value,
+      entidadTipo: document.getElementById('mc-entidad-tipo').value,
+      entidadId: document.getElementById('mc-entidad').value,
+      tipoCanasillaId: document.getElementById('mc-canasilla').value,
+      cantidad: parseInt(document.getElementById('mc-cantidad').value) || 0,
+      referencia: document.getElementById('mc-referencia').value,
+      notas: document.getElementById('mc-notas').value
+    };
+    if (!payload.entidadId || payload.cantidad <= 0) { Utils.showToast('Datos incompletos','warning'); return; }
+    const res = await API.post('registrarMovimientoConsignacion', payload);
     if (res.ok) {
-      Utils.showToast(`${tipo} registrado correctamente.`, 'success');
+      Utils.showToast('Guardado correctamente','success');
       document.getElementById('modal-consig').style.display = 'none';
-      cargarResumen();
-      if (document.querySelector('[data-consig-tab="Historial"]').classList.contains('active')) {
-        cargarHistorial();
-      }
-    } else {
-      Utils.showToast(res.error || 'Error al guardar.', 'error');
-    }
+      cargarResumen(payload.entidadTipo);
+    } else Utils.showToast(res.error, 'error');
   }
 
   async function enviarAlertaManual() {
-    if (!confirm('¿Forzar el envío de la alerta de consignación por correo a los supervisores/admin ahora mismo?')) return;
+    if (!confirm('¿Forzar alerta de correo?')) return;
     const res = await API.post('enviarAlertaConsignacion');
-    if (res.ok) {
-      Utils.showToast(`Alerta enviada a ${res.email}.`, 'success');
-    } else {
-      Utils.showToast(res.error || 'Error enviando alerta.', 'error');
-    }
+    if (res.ok) Utils.showToast('Alerta enviada','success');
+    else Utils.showToast(res.error, 'error');
   }
 
-  return { init, abrirModal, guardar, cargarHistorial, enviarAlertaManual };
+  return { init, abrirModal, guardar, cargarResumen, cargarHistorial, enviarAlertaManual };
+})();
+
+// ===== BASKET FLOW — BAJAS MODULE =====
+const Bajas = (() => {
+  async function init() {
+    await loadHistory(); await loadStats();
+    ['btn-nueva-baja','baja-save-btn'].forEach(id => {
+      const el = document.getElementById(id); if (!el) return;
+      const n = el.cloneNode(true); el.parentNode.replaceChild(n, el);
+      n.addEventListener('click', id==='btn-nueva-baja'?abrirModal:guardar);
+    });
+  }
+  function abrirModal() {
+    const m = document.getElementById('modal-baja'); if (!m) return;
+    document.getElementById('baja-canasilla').innerHTML = (App.getMasters().canasillas||[]).map(t => `<option value="${t.ID}">${t.Descripcion}</option>`).join('');
+    m.style.display = 'flex';
+  }
+  async function guardar() {
+    const p = { tipoCanasillaId: document.getElementById('baja-canasilla').value, cantidad: parseInt(document.getElementById('baja-cantidad').value), motivo: document.getElementById('baja-motivo').value, notas: document.getElementById('baja-notas').value };
+    if (!p.cantidad || p.cantidad <= 0) return Utils.showToast('Indique cantidad válida','warning');
+    const res = await API.post('registrarBaja', p);
+    if (res.ok) { Utils.showToast('Baja registrada','success'); document.getElementById('modal-baja').style.display = 'none'; init(); }
+    else Utils.showToast(res.error,'error');
+  }
+  async function loadHistory() {
+    const tbody = document.getElementById('bajas-history-body'); if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6"><div class="skeleton-text"></div></td></tr>';
+    const res = await API.get('getBajasHistory'); if (!res.ok) return;
+    tbody.innerHTML = (res.items || []).map(b => `<tr>
+      <td class="mono">${Utils.formatDate(b.Timestamp)}</td>
+      <td>${Utils.sanitize(b.TipoCanasillaNombre)}</td>
+      <td class="danger" style="font-weight:700">-${b.Cantidad}</td>
+      <td><span class="badge badge-danger">${b.Motivo}</span></td>
+      <td>${Utils.sanitize(b.UsuarioNombre)}</td>
+      <td style="font-size:0.75rem">${Utils.sanitize(b.Notas||'—')}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--clr-text-muted)">Sin registros</td></tr>';
+  }
+  async function loadStats() {
+    const res = await API.get('getBajasStats'); if (!res.ok) return;
+    const s = res.stats;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('bajas-kpi-rotura', s.ROTURA||0); set('bajas-kpi-perdida', s.PERDIDA||0); set('bajas-kpi-mes', s.total||0);
+  }
+  return { init, abrirModal, guardar };
 })();

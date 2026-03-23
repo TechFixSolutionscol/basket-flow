@@ -135,7 +135,7 @@ function Devoluciones_aprobar(id, userInfo) {
           c.propietarioID   || '',
           c.propietarioNombre || 'Empresa',
           parseFloat(c.pesoUnitario || 0),
-          parseInt(c.cantidad, 10),
+          -Math.abs(parseInt(c.cantidad, 10)), // NEGATIVO: sale del stock físico hacia el proveedor
           id, userInfo
         );
       });

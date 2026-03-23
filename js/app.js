@@ -5,7 +5,7 @@ const App = (() => {
   let _pollingInterval = null;
   let _masters = null;
 
-  const VIEWS = ['dashboard','nueva-entrada','entradas','devoluciones','canasillas','consignacion','reportes','log','maestros','usuarios'];
+  const VIEWS = ['dashboard','nueva-entrada','entradas','devoluciones','canasillas','consignacion','bajas','reportes','log','maestros','usuarios'];
 
   // ── Initialize ─────────────────────────────────────────────────────────
   async function init() {
@@ -52,6 +52,7 @@ const App = (() => {
       case 'devoluciones':   await Devoluciones.init(); break;
       case 'canasillas':     await Canasillas.init(); break;
       case 'consignacion':   await Consignacion.init(); break;
+      case 'bajas':          await Bajas.init(); break;
       case 'reportes':       Reportes.init();        break;
       case 'log':            await Log.init();        break;
       case 'maestros':       await Maestros.init();   break;
@@ -164,6 +165,7 @@ const App = (() => {
     'devoluciones': 'Devoluciones',
     'canasillas':   'Control de Canasillas',
     'consignacion': 'Canasillas en Consignación',
+    'bajas':        'Bajas (Fugas/Daño)',
     'reportes':     'Reportes',
     'log':          'Log de Actividad',
     'maestros':     'Maestros',

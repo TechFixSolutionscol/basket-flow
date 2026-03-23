@@ -54,6 +54,7 @@ function Entradas_crear(payload, userInfo) {
     lineasCanasillas.filter(c => parseInt(c.cantidad, 10) > 0).forEach(c => {
       lSheet.appendRow([
         consecutivo,
+        c.tipoCanasillaID || '',
         c.propietarioTipo || 'Empresa',
         c.propietarioID   || '',
         c.propietarioNombre || 'Empresa',
@@ -61,15 +62,41 @@ function Entradas_crear(payload, userInfo) {
         parseInt(c.cantidad, 10),
         c.subtotal,
       ]);
-      // Actualizar stock de canasillas
+
+      // 1. Actualizar stock físico de canasillas (Incremento en bodega)
+      // Nota: delta positivo porque están entrando físicamente a la empresa
       _actualizarStock(
         c.propietarioTipo || 'Empresa',
         c.propietarioID   || 'empresa',
         c.propietarioNombre || 'Empresa',
         parseFloat(c.pesoUnitario),
-        parseInt(c.cantidad, 10) * -1, // salen de inventario hacia el campo
+        parseInt(c.cantidad, 10), 
         consecutivo, userInfo
       );
+
+      // 2. Liquidación Automática de Deuda de Consignación
+      // Si las canasillas son de la Empresa y el proveedor tiene deuda, se liquida.
+      if ((c.propietarioTipo === 'Empresa' || !c.propietarioTipo) && proveedorID && c.tipoCanasillaID) {
+        try {
+          const saldoPrevio = _getSaldoEntidadTipo('Proveedor', proveedorID, c.tipoCanasillaID);
+          if (saldoPrevio.saldo > 0) {
+            const aLiquidar = Math.min(saldoPrevio.saldo, parseInt(c.cantidad, 10));
+            if (aLiquidar > 0) {
+              Consignacion_registrarMovimiento({
+                tipo: 'RETORNO',
+                entidadTipo: 'Proveedor',
+                entidadId: proveedorID,
+                tipoCanasillaId: c.tipoCanasillaID,
+                cantidad: aLiquidar,
+                referencia: `AUTO-ENTRADA-${consecutivo}`,
+                notas: 'Liquidación automática al recibir canastas de empresa con mercancía.'
+              }, userInfo);
+            }
+          }
+        } catch(e) {
+          Logger.log('Error en liquidación automática: ' + e.message);
+        }
+      }
     });
 
     // Log

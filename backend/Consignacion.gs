@@ -8,34 +8,38 @@
 
 /**
  * Registrar un movimiento de consignación (ENVIO o RETORNO)
- * payload: { tipo, clienteId, tipoCanasillaId, cantidad, referencia, notas }
+ * payload: { tipo, entidadTipo, entidadId, tipoCanasillaId, cantidad, referencia, notas }
+ * entidadTipo: 'Cliente' | 'Proveedor'
  */
 function Consignacion_registrarMovimiento(payload, userInfo) {
   try {
     _requirePermission(userInfo, 'operador');
-    const { tipo, clienteId, tipoCanasillaId, cantidad, referencia, notas } = payload;
+    const { tipo, entidadTipo = 'Cliente', entidadId, tipoCanasillaId, cantidad, referencia, notas } = payload;
 
     // Validaciones
     if (!['ENVIO','RETORNO','AJUSTE'].includes(tipo)) throw new Error('Tipo de movimiento inválido.');
-    if (!clienteId)       throw new Error('Cliente requerido.');
+    if (!entidadId)   throw new Error('Entidad (ID) requerida.');
     if (!tipoCanasillaId) throw new Error('Tipo de canasilla requerido.');
     const qty = parseInt(cantidad);
     if (!qty || qty <= 0) throw new Error('Cantidad debe ser mayor a 0.');
 
     // Validar que al retornar no se devuelva más de lo prestado
     if (tipo === 'RETORNO') {
-      const saldoActual = _getSaldoClienteTipo(clienteId, tipoCanasillaId);
+      const saldoActual = _getSaldoEntidadTipo(entidadTipo, entidadId, tipoCanasillaId);
       if (qty > saldoActual.saldo) {
-        throw new Error(`No se pueden retornar ${qty} canasillas. Saldo actual del cliente: ${saldoActual.saldo}.`);
+        throw new Error(`No se pueden retornar ${qty} canasillas. Saldo actual de ${entidadTipo}: ${saldoActual.saldo}.`);
       }
     }
 
     // Obtener nombres desde maestros
-    const clientes   = _sheetToObjects(_getSheet('Clientes'));
-    const canasillas  = _sheetToObjects(_getSheet('TiposCanasilla'));
-    const cliente     = clientes.find(c => c.ID === clienteId);
-    const canasilla   = canasillas.find(c => c.ID === tipoCanasillaId);
-    if (!cliente)   throw new Error('Cliente no encontrado.');
+    const maestroSheet = entidadTipo === 'Cliente' ? 'Clientes' : 'Proveedores';
+    const entidades = _sheetToObjects(_getSheet(maestroSheet));
+    const canasillas = _sheetToObjects(_getSheet('TiposCanasilla'));
+    
+    const entidad   = entidades.find(e => e.ID === entidadId);
+    const canasilla = canasillas.find(c => c.ID === tipoCanasillaId);
+    
+    if (!entidad)   throw new Error(`${entidadTipo} no encontrado.`);
     if (!canasilla) throw new Error('Tipo de canasilla no encontrado.');
 
     const id = `con_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,5)}`;
@@ -43,8 +47,9 @@ function Consignacion_registrarMovimiento(payload, userInfo) {
       id,
       new Date(),
       tipo,
-      clienteId,
-      cliente.Nombre,
+      entidadTipo,
+      entidadId,
+      entidad.Nombre,
       tipoCanasillaId,
       canasilla.Descripcion,
       qty,
@@ -55,15 +60,13 @@ function Consignacion_registrarMovimiento(payload, userInfo) {
     ]);
 
     // Sincronizar con Stock Físico de la Empresa
-    // Un RETORNO incrementa el stock de la empresa (vuelve a bodega). 
-    // Un ENVIO o AJUSTE lo decrementa (sale de bodega hacia el cliente).
     const deltaStock = (tipo === 'RETORNO') ? qty : -qty;
     _actualizarStock('Empresa', 'BASKET_FLOW', 'Empresa', parseFloat(canasilla.PesoUnitario), deltaStock, id, userInfo);
 
     Log_write(userInfo, `CONSIGNACION_${tipo}`, 'Consignacion', id,
-      `${tipo} ${qty} ${canasilla.Descripcion} → ${cliente.Nombre}`, 'OK');
+      `${tipo} ${qty} ${canasilla.Descripcion} → ${entidad.Nombre} (${entidadTipo})`, 'OK');
 
-    return { ok: true, id, tipo, cantidad: qty, cliente: cliente.Nombre };
+    return { ok: true, id, tipo, cantidad: qty, entidad: entidad.Nombre };
 
   } catch (err) {
     Logger.log('[Consignacion_registrarMovimiento] ' + err.message);
@@ -72,17 +75,17 @@ function Consignacion_registrarMovimiento(payload, userInfo) {
 }
 
 /**
- * Obtener inventario actual de UN cliente (saldo por tipo de canasilla)
- * payload: { clienteId }
+ * Obtener inventario actual de UNA entidad (saldo por tipo de canasilla)
+ * payload: { entidadId, entidadTipo }
  */
-function Consignacion_getInventarioCliente(payload, userInfo) {
+function Consignacion_getInventarioEntidad(payload, userInfo) {
   try {
     _requirePermission(userInfo, 'operador');
-    const { clienteId } = payload;
-    if (!clienteId) throw new Error('clienteId requerido.');
+    const { entidadId, entidadTipo = 'Cliente' } = payload;
+    if (!entidadId) throw new Error('entidadId requerido.');
 
     const movs = _sheetToObjects(_getSheet('MovimientosConsignacion'))
-      .filter(m => m.ClienteID === clienteId);
+      .filter(m => m.EntidadID === entidadId && m.EntidadTipo === entidadTipo);
 
     // Agrupar por tipo
     const mapa = {};
@@ -104,11 +107,12 @@ function Consignacion_getInventarioCliente(payload, userInfo) {
       diasSinRetorno: _diasDesde(r.ultimoMovimiento),
     })).filter(r => r.saldo > 0);
 
-    // Info cliente
-    const clientes = _sheetToObjects(_getSheet('Clientes'));
-    const cliente  = clientes.find(c => c.ID === clienteId);
+    // Info entidad
+    const maestroSheet = entidadTipo === 'Cliente' ? 'Clientes' : 'Proveedores';
+    const entidades = _sheetToObjects(_getSheet(maestroSheet));
+    const entidad   = entidades.find(e => e.ID === entidadId);
 
-    return { ok: true, cliente: cliente?.Nombre || clienteId, clienteId, saldos };
+    return { ok: true, entidad: entidad?.Nombre || entidadId, entidadId, entidadTipo, saldos };
 
   } catch (err) {
     return { ok: false, error: err.message };
@@ -126,12 +130,12 @@ function Consignacion_getResumenGeneral(userInfo) {
     const diasAlerta   = parseInt(config['consig.diasAlerta'] || config['dias_alerta_canasillas'] || '15');
     const umbralUnidades = parseInt(config['consig.umbralUnidades'] || '0');
 
-    // Agrupar por cliente + tipo
+    // Agrupar por entidad + tipo
     const mapa = {};
     movs.forEach(m => {
-      const k = `${m.ClienteID}||${m.TipoCanasillaID}`;
+      const k = `${m.EntidadID}||${m.TipoCanasillaID}`;
       if (!mapa[k]) mapa[k] = {
-        clienteId: m.ClienteID, clienteNombre: m.ClienteNombre,
+        entidadId: m.EntidadID, entidadNombre: m.EntidadNombre, entidadTipo: m.EntidadTipo,
         tipoCanasillaId: m.TipoCanasillaID, tipo: m.TipoCanasillaNombre,
         enviadas: 0, retornadas: 0, ultimoEnvio: null, ultimoRetorno: null,
       };
@@ -166,11 +170,12 @@ function Consignacion_getResumenGeneral(userInfo) {
 function Consignacion_getHistorial(payload, userInfo) {
   try {
     _requirePermission(userInfo, 'operador');
-    const { clienteId, desde, hasta, tipo, page = 1, size = 50 } = payload;
+    const { entidadId, entidadTipo, desde, hasta, tipo, page = 1, size = 50 } = payload;
     let movs = _sheetToObjects(_getSheet('MovimientosConsignacion'));
 
-    if (clienteId) movs = movs.filter(m => m.ClienteID === clienteId);
-    if (tipo)      movs = movs.filter(m => m.Tipo === tipo);
+    if (entidadId)   movs = movs.filter(m => m.EntidadID === entidadId);
+    if (entidadTipo) movs = movs.filter(m => m.EntidadTipo === entidadTipo);
+    if (tipo)        movs = movs.filter(m => m.Tipo === tipo);
     if (desde)     movs = movs.filter(m => new Date(m.Timestamp) >= new Date(desde));
     if (hasta)     movs = movs.filter(m => new Date(m.Timestamp) <= new Date(hasta + 'T23:59:59'));
 
@@ -198,9 +203,9 @@ function Consignacion_ajusteManual(payload, userInfo) {
 
 // ── Helpers internos ─────────────────────────────────────────────────────────
 
-function _getSaldoClienteTipo(clienteId, tipoCanasillaId) {
+function _getSaldoEntidadTipo(entidadTipo, entidadId, tipoCanasillaId) {
   const movs = _sheetToObjects(_getSheet('MovimientosConsignacion'))
-    .filter(m => m.ClienteID === clienteId && m.TipoCanasillaID === tipoCanasillaId);
+    .filter(m => m.EntidadID === entidadId && m.EntidadTipo === entidadTipo && m.TipoCanasillaID === tipoCanasillaId);
   let enviadas = 0, retornadas = 0;
   movs.forEach(m => {
     if (m.Tipo === 'ENVIO')   enviadas   += Number(m.Cantidad);

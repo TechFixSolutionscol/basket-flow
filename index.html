@@ -224,6 +224,10 @@
           Consignación
           <span class="nav-badge" id="sidebar-consig-badge" style="display:none">0</span>
         </div>
+        <div class="nav-item" data-view="bajas">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          Bajas (Fugas/Daño)
+        </div>
       </div>
 
       <div class="sidebar-section">
@@ -632,37 +636,52 @@
         <div class="page-header">
           <div>
             <h1 class="page-title">Canasillas en Consignación</h1>
-            <p style="color:var(--clr-text-muted);font-size:0.78rem">Control de canasillas en poder de clientes</p>
+            <p style="color:var(--clr-text-muted);font-size:0.75rem">Préstamos y retornos de canasillas propias</p>
           </div>
-          <button class="btn btn-primary" onclick="Consignacion.abrirModal('ENVIO')">Entregar a Cliente</button>
+          <div style="display:flex;gap:var(--sp-2)">
+            <button class="btn btn-secondary" onclick="Consignacion.abrirModal('ENVIO', 'Proveedor')">Vaciado a Proveedor</button>
+            <button class="btn btn-primary" onclick="Consignacion.abrirModal('ENVIO', 'Cliente')">Entrega a Cliente</button>
+          </div>
         </div>
 
         <div class="tabs">
-          <div class="tab active" data-consig-tab="Resumen">Resumen General</div>
-          <div class="tab" data-consig-tab="Historial">Historial</div>
+          <div class="tab active" data-consig-tab="Clientes">Deuda Clientes</div>
+          <div class="tab" data-consig-tab="Proveedores">Deuda Proveedores</div>
+          <div class="tab" data-consig-tab="Historial">Historial Global</div>
         </div>
 
-        <!-- Tab 1: Resumen -->
-        <div class="data-table-wrap consig-tab-content" id="consig-tab-Resumen">
+        <!-- Tab 1: Clientes (Saldos) -->
+        <div class="data-table-wrap consig-tab-content" id="consig-tab-Clientes">
           <div class="card-header" style="justify-content:space-between">
-            <h3 class="card-title">Saldos por Cliente</h3>
-            <button class="btn btn-ghost btn-sm" onclick="Consignacion.enviarAlertaManual()" data-role="supervisor" style="color:var(--clr-accent-cyan)">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Forzar Alerta Email
-            </button>
+            <h3 class="card-title">Canasillas por Cliente</h3>
           </div>
           <div style="overflow-x:auto">
             <table class="data-table">
               <thead><tr>
-                <th>Cliente</th>
-                <th>Tipo Canasilla</th>
-                <th style="text-align:center">Enviadas</th>
-                <th style="text-align:center">Retornadas</th>
+                <th>Cliente</th><th>Tipo Canasilla</th>
+                <th style="text-align:center">Enviadas</th><th style="text-align:center">Retornadas</th>
                 <th style="text-align:center;color:var(--clr-accent-cyan)">SALDO</th>
-                <th style="text-align:center">Días sin retorno</th>
-                <th style="text-align:center">Criticidad</th>
-                <th>Acciones</th>
+                <th style="text-align:center">Días sin retorno</th><th>Criticidad</th><th>Acciones</th>
               </tr></thead>
-              <tbody id="consig-resumen-body"></tbody>
+              <tbody id="consig-clientes-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 2: Proveedores (Saldos) -->
+        <div class="data-table-wrap consig-tab-content" id="consig-tab-Proveedores" style="display:none">
+          <div class="card-header" style="justify-content:space-between">
+            <h3 class="card-title">Canasillas por Proveedor</h3>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Proveedor</th><th>Tipo Canasilla</th>
+                <th style="text-align:center">Enviadas</th><th style="text-align:center">Retornadas</th>
+                <th style="text-align:center;color:var(--clr-accent-cyan)">SALDO</th>
+                <th style="text-align:center">Último Retorno</th><th>Acciones</th>
+              </tr></thead>
+              <tbody id="consig-proveedores-body"></tbody>
             </table>
           </div>
         </div>
@@ -670,10 +689,14 @@
         <!-- Tab 2: Historial -->
         <div class="data-table-wrap consig-tab-content" id="consig-tab-Historial" style="display:none">
           <div class="data-table-toolbar" style="margin-bottom:var(--sp-4)">
-            <select id="consig-hist-cliente" class="form-select" style="min-width:200px">
-              <option value="">Todos los clientes</option>
+            <select id="consig-hist-tipo-entidad" class="form-select" style="width:140px">
+              <option value="Cliente">Clientes</option>
+              <option value="Proveedor">Proveedores</option>
             </select>
-            <select id="consig-hist-tipo" class="form-select" style="width:140px">
+            <select id="consig-hist-entidad" class="form-select" style="min-width:200px">
+              <option value="">Seleccionar entidad...</option>
+            </select>
+            <select id="consig-hist-tipo-mvt" class="form-select" style="width:140px">
               <option value="">Todos los mvts</option>
               <option value="ENVIO">Envíos</option>
               <option value="RETORNO">Retornos</option>
@@ -703,9 +726,10 @@
             <h2 class="card-title" id="modal-consig-title" style="margin-bottom:var(--sp-4)">Registro Consignación</h2>
             <div class="modal-body">
               <input type="hidden" id="mc-tipo">
+              <input type="hidden" id="mc-entidad-tipo">
               <div class="form-group">
-                <label class="form-label">Cliente *</label>
-                <select id="mc-cliente" class="form-select"></select>
+                <label class="form-label" id="mc-entidad-label">Entidad *</label>
+                <select id="mc-entidad" class="form-select"></select>
               </div>
               <div class="form-group">
                 <label class="form-label">Tipo de Canasilla *</label>
@@ -727,6 +751,80 @@
             <div class="modal-footer">
               <button class="btn btn-secondary" onclick="document.getElementById('modal-consig').style.display='none'">Cancelar</button>
               <button class="btn btn-primary" id="mc-save-btn" onclick="Consignacion.guardar()">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── BAJAS (MERMAS) ── -->
+      <section id="view-bajas" style="display:none">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Bajas (Fugas/Daño)</h1>
+            <p style="color:var(--clr-text-muted);font-size:0.75rem">Registro oficial de canasillas rotas o perdidas</p>
+          </div>
+          <button class="btn btn-primary" id="btn-nueva-baja">Registrar Baja</button>
+        </div>
+
+        <div class="kpi-grid stagger-in" style="margin-bottom:var(--sp-6)">
+          <div class="kpi-card">
+            <div class="kpi-label">Total Roturas</div>
+            <div class="kpi-value danger" id="bajas-kpi-rotura">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Pérdidas</div>
+            <div class="kpi-value danger" id="bajas-kpi-perdida">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Uds. dadas de baja (Mes)</div>
+            <div class="kpi-value" id="bajas-kpi-mes">0</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Historial de Bajas</h3>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Fecha</th><th>Tipo Canasilla</th><th>Cant.</th><th>Motivo</th><th>Usuario</th><th>Notas</th>
+              </tr></thead>
+              <tbody id="bajas-history-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal de Baja -->
+        <div class="modal-overlay" id="modal-baja" style="display:none;z-index:var(--z-overlay)">
+          <div class="modal card" style="max-width:400px">
+            <h2 class="card-title" style="margin-bottom:var(--sp-4)">Registrar Baja</h2>
+            <div class="modal-body">
+              <div class="form-group">
+                <label class="form-label">Tipo de Canasilla *</label>
+                <select id="baja-canasilla" class="form-select"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Cantidad *</label>
+                <input type="number" id="baja-cantidad" class="form-input" min="1" placeholder="Uds. afectadas">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Motivo de Baja *</label>
+                <select id="baja-motivo" class="form-select">
+                  <option value="ROTURA">Rotura / Daño físico</option>
+                  <option value="PERDIDA">Pérdida / Extravío</option>
+                  <option value="DAÑO_IRREPARABLE">Daño irreparable</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Notas / Detalle</label>
+                <textarea id="baja-notas" class="form-input" rows="2" placeholder="Explica cómo ocurrió..."></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="document.getElementById('modal-baja').style.display='none'">Cancelar</button>
+              <button class="btn btn-primary" id="baja-save-btn">Confirmar Baja</button>
             </div>
           </div>
         </div>

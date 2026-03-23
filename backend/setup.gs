@@ -45,7 +45,7 @@ function setupDatabase() {
   ]);
   
   _setupSheet(ss, 'LineasCanasillasEntrada', [
-    'EntradaID','PropietarioTipo','PropietarioID','PropietarioNombre',
+    'EntradaID','TipoCanasillaID','PropietarioTipo','PropietarioID','PropietarioNombre',
     'PesoUnitario','Cantidad','PesoSubtotal'
   ]);
   
@@ -56,7 +56,7 @@ function setupDatabase() {
   ]);
   
   _setupSheet(ss, 'LineasCanasillasDevolucion', [
-    'DevolucionID','PropietarioTipo','PropietarioID','PropietarioNombre','Cantidad'
+    'DevolucionID','TipoCanasillaID','PropietarioTipo','PropietarioID','PropietarioNombre','Cantidad'
   ]);
   
   _setupSheet(ss, 'StockCanasillas', [
@@ -79,9 +79,13 @@ function setupDatabase() {
   ]);
   
   _setupSheet(ss, 'MovimientosConsignacion', [
-    'ID','Timestamp','Tipo','ClienteID','ClienteNombre',
+    'ID','Timestamp','Tipo','EntidadTipo','EntidadID','EntidadNombre',
     'TipoCanasillaID','TipoCanasillaNombre','Cantidad',
     'Referencia','Notas','UsuarioID','UsuarioNombre'
+  ]);
+
+  _setupSheet(ss, 'BajasCanasillas', [
+    'ID','Timestamp','TipoCanasillaID','TipoCanasillaNombre','Cantidad','Motivo','Notas','UsuarioID','UsuarioNombre'
   ]);
 
   // Datos iniciales: Configuración
