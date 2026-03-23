@@ -1,2 +1,2 @@
 # basket-flow
-basket flow administrador de entradas y salidas
+control de entrada y canastillas

@@ -1,0 +1,77 @@
+/* ===== BASKET FLOW — DESIGN TOKENS ===== */
+:root {
+  /* === COLORS — Background layers === */
+  --clr-bg-base:  #080C10;
+  --clr-bg-02:    #0D1319;
+  --clr-bg-03:    #111820;
+  --clr-bg-04:    #161E28;
+  --clr-bg-05:    #1C2530;
+
+  /* === COLORS — Accent === */
+  --clr-accent-cyan:      #00D2B4;
+  --clr-accent-cyan-dim:  rgba(0, 210, 180, 0.08);
+  --clr-accent-cyan-med:  rgba(0, 210, 180, 0.18);
+  --clr-accent-cyan-glow: rgba(0, 210, 180, 0.35);
+  --clr-accent-amber:     #F0C060;
+  --clr-accent-amber-dim: rgba(240, 192, 96, 0.12);
+  --clr-danger:           #FF4D6A;
+  --clr-danger-dim:       rgba(255, 77, 106, 0.12);
+  --clr-success:          #00D2B4;
+  --clr-warning:          #F0C060;
+
+  /* === COLORS — Text === */
+  --clr-text-primary:   #E8EDF2;
+  --clr-text-secondary: #8A9AAE;
+  --clr-text-muted:     #4A5A6A;
+  --clr-text-cyan:      #00D2B4;
+  --clr-text-amber:     #F0C060;
+  --clr-text-danger:    #FF4D6A;
+
+  /* === COLORS — Borders === */
+  --clr-border:       rgba(0, 210, 180, 0.14);
+  --clr-border-soft:  rgba(0, 210, 180, 0.07);
+  --clr-border-focus: rgba(0, 210, 180, 0.60);
+
+  /* === TYPOGRAPHY === */
+  --font-display: 'Syne', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+
+  /* === SPACING === */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10:40px;
+  --sp-12:48px;
+
+  /* === BORDER RADIUS === */
+  --radius-xs:  2px;
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg: 12px;
+
+  /* === LAYOUT === */
+  --sidebar-w:  220px;
+  --topbar-h:    56px;
+
+  /* === Z-INDEX === */
+  --z-base:    1;
+  --z-dropdown:100;
+  --z-drawer:  200;
+  --z-modal:   300;
+  --z-toast:   400;
+  --z-overlay: 500;
+
+  /* === TRANSITIONS === */
+  --transition-fast:   0.12s ease;
+  --transition-base:   0.20s ease;
+  --transition-slow:   0.35s ease;
+
+  /* === SHADOWS === */
+  --shadow-card:  0 2px 12px rgba(0,0,0,0.5);
+  --shadow-modal: 0 8px 40px rgba(0,0,0,0.7);
+  --shadow-cyan:  0 0 20px rgba(0,210,180,0.15);
+}

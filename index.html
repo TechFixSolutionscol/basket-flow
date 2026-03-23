@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Basket Flow — Sistema de Gestión de Operaciones de Báscula y Mercancía Fresh Produce">
+  <title>Basket Flow — Sistema de Control de Báscula</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/modules.css">
+
+  <!-- CDN Libraries -->
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- jsPDF + AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     OFFLINE BANNER
+══════════════════════════════════════ -->
+<div class="offline-banner" id="offline-banner">
+  ⚠ Sin conexión a internet — verificando...
+</div>
+
+<!-- ══════════════════════════════════════
+     TOAST CONTAINER
+══════════════════════════════════════ -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ══════════════════════════════════════
+     GLOBAL MODAL
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay" style="display:none;" onclick="if(event.target===this)Maestros.closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Formulario</h2>
+      <button class="modal-close" onclick="Maestros.closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Maestros.closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="modal-save-btn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     DRAWER OVERLAY
+══════════════════════════════════════ -->
+<div class="drawer-overlay" id="drawer-overlay" style="display:none;"
+     onclick="this.style.display='none';document.getElementById('drawer-detalle').innerHTML=''"></div>
+<div class="drawer" id="drawer-detalle" style="display:none;"></div>
+
+<!-- ══════════════════════════════════════
+     SUCCESS OVERLAY (Nueva Entrada)
+══════════════════════════════════════ -->
+<div id="entrada-success-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:var(--z-overlay);align-items:center;justify-content:center;">
+  <div style="text-align:center;animation:slideUp 0.3s ease">
+    <div class="success-icon" style="width:80px;height:80px;margin:0 auto var(--sp-4)">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="stroke-dasharray:50;stroke-dashoffset:50;animation:checkmark 0.4s ease 0.2s forwards"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <p style="font-family:var(--font-display);font-weight:700;font-size:1.2rem;color:var(--clr-accent-cyan)">Entrada Registrada</p>
+    <p style="color:var(--clr-text-muted);font-size:0.82rem;margin-top:8px">Preparando formulario para la siguiente entrada...</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     LOGIN VIEW
+══════════════════════════════════════ -->
+<div id="login-view" style="display:flex;">
+  <!-- Branding -->
+  <div class="login-brand">
+    <!-- Animated basket icon -->
+    <svg class="login-logo-icon" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="35" width="60" height="35" rx="6" stroke="#00D2B4" stroke-width="2" fill="none"/>
+      <path d="M20 35L30 15" stroke="#00D2B4" stroke-width="2" stroke-linecap="round">
+        <animateTransform attributeName="transform" type="rotate" values="0 20 35; -5 20 35; 0 20 35" dur="2s" repeatCount="indefinite"/>
+      </path>
+      <path d="M60 35L50 15" stroke="#00D2B4" stroke-width="2" stroke-linecap="round">
+        <animateTransform attributeName="transform" type="rotate" values="0 60 35; 5 60 35; 0 60 35" dur="2s" repeatCount="indefinite"/>
+      </path>
+      <line x1="10" y1="50" x2="70" y2="50" stroke="#00D2B4" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.5"/>
+      <line x1="10" y1="62" x2="70" y2="62" stroke="#00D2B4" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
+      <!-- circles inside basket animating -->
+      <circle cx="30" cy="56" r="4" fill="#00D2B4" opacity="0.6">
+        <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="40" cy="56" r="4" fill="#00D2B4" opacity="0.8">
+        <animate attributeName="opacity" values="0.8;0.4;0.8" dur="1.5s" begin="0.3s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="50" cy="56" r="4" fill="#00D2B4" opacity="0.6">
+        <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" begin="0.6s" repeatCount="indefinite"/>
+      </circle>
+    </svg>
+
+    <div class="login-logo-text">BASKET FLOW</div>
+    <div class="login-tagline">Operaciones bajo control. Siempre.</div>
+  </div>
+
+  <!-- Form -->
+  <div class="login-form-area">
+    <div class="login-form-card card" id="login-form-card">
+      <h1 class="login-form-title">Iniciar Sesión</h1>
+      <p class="login-form-subtitle">Accede a tu panel de operaciones</p>
+
+      <div id="login-error" class="login-error" style="display:none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span></span>
+      </div>
+
+      <form id="login-form" class="login-form-content">
+        <div class="form-group">
+          <label class="form-label" for="login-email">Email corporativo</label>
+          <input type="email" id="login-email" class="form-input" placeholder="usuario@empresa.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-password">Contraseña</label>
+          <div class="form-input-wrap">
+            <input type="password" id="login-password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+            <span class="input-icon" id="toggle-password">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <label class="form-checkbox">
+          <input type="checkbox" id="login-keep">
+          Mantener sesión abierta (30 días)
+        </label>
+
+        <button type="submit" class="btn btn-primary btn-full btn-lg" id="login-btn">
+          INICIAR SESIÓN
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     APP SHELL
+══════════════════════════════════════ -->
+<div id="app-shell" class="app-shell" style="display:none;">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      BASKET FLOW
+    </div>
+    <div class="topbar-breadcrumb" id="topbar-breadcrumb">
+      <span>Basket Flow</span> / Dashboard
+    </div>
+    <div class="topbar-clock" id="topbar-clock">00:00:00</div>
+
+    <div class="topbar-actions">
+      <!-- Notifications -->
+      <div class="notif-bell" id="notif-bell" title="Alertas">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-badge" id="notif-badge" style="display:none">0</span>
+      </div>
+
+      <!-- User menu -->
+      <div style="position:relative">
+        <div class="avatar" id="topbar-avatar" title="Mi cuenta">A</div>
+        <div class="user-menu" id="user-menu" style="display:none;">
+          <div class="user-menu-header">
+            <div class="user-menu-name" id="topbar-user-name">Usuario</div>
+            <div class="user-menu-role" id="topbar-user-role">operador</div>
+          </div>
+          <div class="user-menu-item" onclick="App.logout()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Cerrar sesión
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <span class="sidebar-section-label">OPERACIONES</span>
+        <div class="nav-item active" data-view="dashboard">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" data-view="nueva-entrada">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l3-8 3 8-3-1-3 1z"/><path d="M16 16c-3 2-9-4-9-4s6-6 9-4"/><line x1="2" y1="21" x2="22" y2="21"/></svg>
+          Nueva Entrada
+        </div>
+        <div class="nav-item" data-view="entradas">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Registro de Entradas
+        </div>
+        <div class="nav-item" data-view="devoluciones">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.93"/></svg>
+          Devoluciones
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <span class="sidebar-section-label">INVENTARIO</span>
+        <div class="nav-item" data-view="canasillas">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+          Canasillas
+          <span class="nav-badge" id="sidebar-canasillas-badge" style="display:none">0</span>
+        </div>
+        <div class="nav-item" data-view="consignacion">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Consignación
+          <span class="nav-badge" id="sidebar-consig-badge" style="display:none">0</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <span class="sidebar-section-label">REPORTES</span>
+        <div class="nav-item" data-view="reportes">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Reportes & PDF
+        </div>
+      </div>
+
+      <div class="sidebar-section" data-role="supervisor">
+        <span class="sidebar-section-label">CONFIGURACIÓN</span>
+        <div class="nav-item" data-view="maestros" data-role="admin">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Maestros
+        </div>
+        <div class="nav-item" data-view="usuarios" data-role="admin">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Usuarios
+        </div>
+        <div class="nav-item" data-view="log" data-role="supervisor">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Log de Actividad
+        </div>
+      </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" id="main-content">
+
+      <!-- ── DASHBOARD ── -->
+      <section id="view-dashboard" style="display:none" class="stagger-in">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-subtitle">Resumen operativo del día</p>
+          </div>
+          <button class="quick-action" style="width:auto;padding:0 var(--sp-6)" onclick="App.navigate('nueva-entrada')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            REGISTRAR ENTRADA
+          </button>
+        </div>
+
+        <div class="kpi-grid stagger-in">
+          <div class="kpi-card">
+            <div class="kpi-label">Entradas del día</div>
+            <div class="kpi-value cyan" id="kpi-entradas-hoy">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">KG totales recibidos</div>
+            <div class="kpi-value cyan" id="kpi-kg-hoy">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Canasillas empresa</div>
+            <div class="kpi-value" id="kpi-stock-canasillas">—</div>
+          </div>
+          <div class="kpi-card kpi-warning" id="kpi-alertas-card">
+            <div class="kpi-label">⚠ Alertas activas</div>
+            <div class="kpi-value" id="kpi-alertas">—</div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div>
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Entradas por hora (últimas 8h)</h3>
+              </div>
+              <div class="chart-container">
+                <canvas id="chart-horas"></canvas>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:var(--sp-4)">
+              <div class="card-header">
+                <h3 class="card-title">Últimas entradas</h3>
+                <button class="btn btn-ghost btn-sm" onclick="App.navigate('entradas')">Ver todas →</button>
+              </div>
+              <div class="data-table-wrap" style="border:none">
+                <table class="data-table">
+                  <thead><tr>
+                    <th>Consecutivo</th><th>Proveedor</th><th>Producto</th><th>Kg Neto</th><th>Estado</th>
+                  </tr></thead>
+                  <tbody id="ultimas-entradas-body">
+                    <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+                    <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+                    <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Alertas de canasillas</h3>
+              </div>
+              <div id="alertas-panel">
+                <p style="color:var(--clr-text-muted);font-size:0.82rem;text-align:center;padding:var(--sp-5)">Verificando alertas...</p>
+              </div>
+            </div>
+
+            <div style="margin-top:var(--sp-4)">
+              <button class="quick-action" onclick="App.navigate('nueva-entrada')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                REGISTRAR ENTRADA
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── NUEVA ENTRADA ── -->
+      <section id="view-nueva-entrada" style="display:none">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Nueva Entrada</h1>
+            <p class="page-subtitle">Registro de mercancía recibida en báscula</p>
+          </div>
+        </div>
+
+        <form id="entrada-form">
+          <div class="entrada-layout">
+            <!-- Columna izquierda: Identificación -->
+            <div class="entrada-col">
+              <div class="card">
+                <div class="card-header"><h3 class="card-title">Identificación</h3></div>
+                <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                  <div class="form-group">
+                    <label class="form-label">Consecutivo</label>
+                    <input type="text" id="entrada-consecutivo" class="form-input" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Fecha y hora</label>
+                    <input type="text" id="entrada-datetime" class="form-input" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Proveedor <span class="required">*</span></label>
+                    <select id="entrada-proveedor" class="form-select" required>
+                      <option value="">Seleccionar...</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Producto <span class="required">*</span></label>
+                    <select id="entrada-producto" class="form-select" required>
+                      <option value="">Seleccionar...</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Cliente destino</label>
+                    <select id="entrada-cliente" class="form-select">
+                      <option value="">Sin cliente</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Observaciones</label>
+                    <textarea id="entrada-comentarios" class="form-textarea" placeholder="Calidad, temperatura, condiciones del producto..."></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Columna derecha: Pesos y canasillas -->
+            <div class="entrada-col">
+              <!-- Scale Display -->
+              <div class="scale-display">
+                <div class="scale-label">PESO LIBRE (MERCANCÍA)</div>
+                <div style="display:flex;align-items:baseline;justify-content:center;gap:8px">
+                  <span class="scale-weight" id="scale-weight">0.0</span>
+                  <span class="scale-unit">kg</span>
+                </div>
+                <div class="scale-error-msg" id="scale-error" style="display:none">⚠ ERROR: Peso inválido — revisa los datos ingresados</div>
+                <div class="scale-breakdown">
+                  <div class="scale-breakdown-item"><span class="sb-key">Canasillas</span><span class="sb-val" id="scale-canasillas">0.0 kg</span></div>
+                  <div class="scale-breakdown-item"><span class="sb-key">Estiba</span><span class="sb-val" id="scale-estiba">0.0 kg</span></div>
+                  <div class="scale-breakdown-item"><span class="sb-key">Total uds</span><span class="sb-val" id="scale-unidades">0 uds</span></div>
+                </div>
+              </div>
+
+              <!-- Pesos -->
+              <div class="card">
+                <div class="card-header"><h3 class="card-title">Pesos</h3></div>
+                <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                  <div class="form-group">
+                    <label class="form-label">Peso total báscula (kg) <span class="required">*</span></label>
+                    <input type="number" id="entrada-peso-bascula" class="form-input" step="0.1" min="0" placeholder="0.0" required
+                           style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;color:var(--clr-accent-cyan);height:52px;text-align:center">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Peso estiba</label>
+                    <select id="entrada-peso-estiba" class="form-select">
+                      <option value="0">Sin estiba — 0 kg</option>
+                      <option value="0.5">Estiba pequeña — 0.5 kg</option>
+                      <option value="1">Estiba media — 1.0 kg</option>
+                      <option value="1.5">Estiba grande — 1.5 kg</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Canasillas -->
+              <div class="card">
+                <div class="card-header">
+                  <h3 class="card-title">Canasillas</h3>
+                  <button type="button" class="btn btn-ghost btn-sm" id="add-canasilla-btn">+ Agregar tipo</button>
+                </div>
+                <div class="canasillas-lines" id="canasillas-container"></div>
+              </div>
+
+              <!-- Actions -->
+              <div class="entrada-actions">
+                <button type="submit" class="btn btn-primary btn-lg btn-full" id="entrada-save-btn">
+                  GUARDAR ENTRADA
+                </button>
+                <button type="button" class="btn btn-secondary btn-full" id="entrada-limpiar">LIMPIAR FORMULARIO</button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── REGISTRO DE ENTRADAS ── -->
+      <section id="view-entradas" style="display:none">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Registro de Entradas</h1>
+            <p class="page-subtitle" id="entradas-count">—</p>
+          </div>
+          <div style="display:flex;gap:var(--sp-3)">
+            <button class="btn btn-secondary btn-sm" onclick="Utils.exportCSV([], [], 'entradas.csv')">Exportar CSV</button>
+            <button class="btn btn-primary btn-sm" onclick="App.navigate('nueva-entrada')">+ Nueva entrada</button>
+          </div>
+        </div>
+
+        <div class="data-table-wrap">
+          <div class="data-table-toolbar">
+            <div class="data-table-search">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="entradas-busqueda" class="form-input" placeholder="Buscar por consecutivo, proveedor, producto...">
+            </div>
+            <div class="data-table-filters">
+              <input type="date" id="entradas-filter-desde" class="form-input" style="width:140px" title="Desde">
+              <input type="date" id="entradas-filter-hasta" class="form-input" style="width:140px" title="Hasta">
+              <select id="entradas-filter-estado" class="form-select" style="width:160px">
+                <option value="">Todos los estados</option>
+                <option>Activa</option>
+                <option>Con devolución</option>
+                <option>Anulada</option>
+              </select>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th style="width:30px"><input type="checkbox"></th>
+                <th>Consecutivo</th><th>Fecha</th><th>Hora</th>
+                <th>Proveedor</th><th>Producto</th>
+                <th>Kg Báscula</th><th>Kg Neto</th>
+                <th>Estado</th><th>Acciones</th>
+              </tr></thead>
+              <tbody id="entradas-grid-body">
+                <tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="data-table-footer">
+            <span id="entradas-count-footer"></span>
+            <div class="pagination" id="entradas-pagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── DEVOLUCIONES ── -->
+      <section id="view-devoluciones" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title">Devoluciones</h1>
+        </div>
+
+        <!-- Steps indicator -->
+        <div class="steps">
+          <div class="step active">
+            <div class="step-num">1</div>
+            <span>Buscar entrada</span>
+          </div>
+          <div class="step-divider"></div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <span>Registrar devolución</span>
+          </div>
+          <div class="step-divider"></div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <span>Confirmación</span>
+          </div>
+        </div>
+
+        <!-- Step 1: Buscar -->
+        <div id="dev-step-1" class="card">
+          <div class="card-header"><h3 class="card-title">Buscar entrada original</h3></div>
+          <div style="display:flex;gap:var(--sp-3);align-items:flex-end">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Consecutivo de la entrada (ej: BF-2026-00001)</label>
+              <input type="text" id="dev-ref-entrada" class="form-input" placeholder="BF-2026-XXXXX" style="font-family:var(--font-mono)">
+            </div>
+            <button type="button" class="btn btn-primary" id="dev-buscar-btn">Buscar</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Formulario -->
+        <div id="dev-step-2" style="display:none" class="card">
+          <div class="card-header"><h3 class="card-title">Datos de la devolución</h3></div>
+          <div id="dev-entrada-resumen" class="card" style="margin-bottom:var(--sp-4);background:var(--clr-bg-04)"></div>
+          <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Motivo <span class="required">*</span></label>
+                <select id="dev-motivo" class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="calidad">Problemas de calidad</option>
+                  <option value="sobrante">Mercancía sobrante</option>
+                  <option value="error_peso">Error en peso</option>
+                  <option value="rechazo_cliente">Rechazo del cliente</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Peso devuelto (kg) <span class="required">*</span></label>
+                <input type="number" id="dev-peso" class="form-input" step="0.1" min="0" placeholder="0.0" style="font-family:var(--font-mono)">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Descripción del motivo</label>
+              <textarea id="dev-motivo-texto" class="form-textarea" placeholder="Detalla el motivo de la devolución..."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Comentarios adicionales</label>
+              <textarea id="dev-comentarios" class="form-textarea" placeholder="Observaciones..."></textarea>
+            </div>
+            <button type="button" class="btn btn-primary" id="dev-crear-btn">CREAR DEVOLUCIÓN</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Confirmación -->
+        <div id="dev-step-3" style="display:none" class="card" style="text-align:center;padding:var(--sp-8)">
+          <div id="dev-confirmacion" style="text-align:center"></div>
+          <button class="btn btn-secondary" style="margin-top:var(--sp-5)" onclick="Devoluciones.init()">Nueva devolución</button>
+        </div>
+
+        <!-- Grid de devoluciones -->
+        <div class="data-table-wrap" style="margin-top:var(--sp-6)">
+          <div class="card-header" style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--clr-border)">
+            <h3 class="card-title">Historial de devoluciones</h3>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Consecutivo</th><th>Ref. Entrada</th><th>Fecha</th>
+                <th>Motivo</th><th>Peso Dev.</th><th>Estado</th><th>Aprobó</th><th>Acciones</th>
+              </tr></thead>
+              <tbody id="devoluciones-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CANASILLAS ── -->
+      <section id="view-canasillas" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title">Control de Canasillas</h1>
+        </div>
+
+        <div class="kpi-grid stagger-in">
+          <div class="kpi-card"><div class="kpi-label">Stock Total</div><div class="kpi-value cyan" id="can-total-stock">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Stock Empresa</div><div class="kpi-value" id="can-empresa">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Con Clientes</div><div class="kpi-value" id="can-clientes">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Con Proveedores</div><div class="kpi-value" id="can-proveedores">—</div></div>
+          <div class="kpi-card kpi-danger"><div class="kpi-label">⚠ En alerta (&gt;7 días)</div><div class="kpi-value danger" id="can-alertas-count">—</div></div>
+        </div>
+
+        <h3 class="card-title" style="margin-bottom:var(--sp-3)">STOCK POR PROPIETARIO</h3>
+        <div class="stock-grid" id="canasillas-stock-grid">
+          <div class="skeleton skeleton-row" style="height:100px"></div>
+          <div class="skeleton skeleton-row" style="height:100px"></div>
+          <div class="skeleton skeleton-row" style="height:100px"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Log de Movimientos</h3>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Fecha/Hora</th><th>Tipo</th><th>Propietario</th>
+                <th>Cantidad</th><th>Peso Unit.</th><th>Referencia</th><th>Usuario</th>
+              </tr></thead>
+              <tbody id="movimientos-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CONSIGNACIÓN ── -->
+      <section id="view-consignacion" style="display:none">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Canasillas en Consignación</h1>
+            <p style="color:var(--clr-text-muted);font-size:0.78rem">Control de canasillas en poder de clientes</p>
+          </div>
+          <button class="btn btn-primary" onclick="Consignacion.abrirModal('ENVIO')">Entregar a Cliente</button>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" data-consig-tab="Resumen">Resumen General</div>
+          <div class="tab" data-consig-tab="Historial">Historial</div>
+        </div>
+
+        <!-- Tab 1: Resumen -->
+        <div class="data-table-wrap consig-tab-content" id="consig-tab-Resumen">
+          <div class="card-header" style="justify-content:space-between">
+            <h3 class="card-title">Saldos por Cliente</h3>
+            <button class="btn btn-ghost btn-sm" onclick="Consignacion.enviarAlertaManual()" data-role="supervisor" style="color:var(--clr-accent-cyan)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Forzar Alerta Email
+            </button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Cliente</th>
+                <th>Tipo Canasilla</th>
+                <th style="text-align:center">Enviadas</th>
+                <th style="text-align:center">Retornadas</th>
+                <th style="text-align:center;color:var(--clr-accent-cyan)">SALDO</th>
+                <th style="text-align:center">Días sin retorno</th>
+                <th style="text-align:center">Criticidad</th>
+                <th>Acciones</th>
+              </tr></thead>
+              <tbody id="consig-resumen-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 2: Historial -->
+        <div class="data-table-wrap consig-tab-content" id="consig-tab-Historial" style="display:none">
+          <div class="data-table-toolbar" style="margin-bottom:var(--sp-4)">
+            <select id="consig-hist-cliente" class="form-select" style="min-width:200px">
+              <option value="">Todos los clientes</option>
+            </select>
+            <select id="consig-hist-tipo" class="form-select" style="width:140px">
+              <option value="">Todos los mvts</option>
+              <option value="ENVIO">Envíos</option>
+              <option value="RETORNO">Retornos</option>
+              <option value="AJUSTE">Ajustes</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="Consignacion.cargarHistorial()">Filtrar</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Fecha/Hora</th>
+                <th>Tipo</th>
+                <th>Cliente</th>
+                <th>Canasilla</th>
+                <th>Cantidad</th>
+                <th>Referencia</th>
+                <th>Usuario</th>
+              </tr></thead>
+              <tbody id="consig-historial-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal de Movimiento -->
+        <div class="modal-overlay" id="modal-consig" style="display:none;z-index:var(--z-overlay)">
+          <div class="modal card" style="max-width:450px">
+            <h2 class="card-title" id="modal-consig-title" style="margin-bottom:var(--sp-4)">Registro Consignación</h2>
+            <div class="modal-body">
+              <input type="hidden" id="mc-tipo">
+              <div class="form-group">
+                <label class="form-label">Cliente *</label>
+                <select id="mc-cliente" class="form-select"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tipo de Canasilla *</label>
+                <select id="mc-canasilla" class="form-select"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Cantidad *</label>
+                <input type="number" id="mc-cantidad" class="form-input" min="1" placeholder="Ej: 10">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Referencia (opcional)</label>
+                <input type="text" id="mc-referencia" class="form-input" placeholder="N° Remisión, Factura, etc.">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Notas (opcional)</label>
+                <textarea id="mc-notas" class="form-input" rows="2" placeholder="Observaciones extras"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="document.getElementById('modal-consig').style.display='none'">Cancelar</button>
+              <button class="btn btn-primary" id="mc-save-btn" onclick="Consignacion.guardar()">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── REPORTES ── -->
+
+      <section id="view-reportes" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title">Reportes & PDF</h1>
+        </div>
+
+        <div class="report-selector">
+          <div class="report-card" data-report="diario">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <div class="report-card-title">Reporte Diario</div>
+            <div class="report-card-desc">Todas las entradas de un día</div>
+          </div>
+          <div class="report-card" data-report="proveedor">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div class="report-card-title">Por Proveedor</div>
+            <div class="report-card-desc">Historial de un proveedor</div>
+          </div>
+          <div class="report-card" data-report="cliente">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <div class="report-card-title">Por Cliente</div>
+            <div class="report-card-desc">Entregas a un cliente</div>
+          </div>
+          <div class="report-card" data-report="inventario">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>
+            <div class="report-card-title">Inventario Canasillas</div>
+            <div class="report-card-desc">Stock y alertas actuales</div>
+          </div>
+        </div>
+
+        <div class="card" id="report-params">
+          <p style="color:var(--clr-text-muted);text-align:center;padding:var(--sp-6)">Selecciona un tipo de reporte arriba para configurarlo.</p>
+        </div>
+      </section>
+
+      <!-- ── LOG DE ACTIVIDAD ── -->
+      <section id="view-log" style="display:none">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Log de Actividad</h1>
+            <p style="color:var(--clr-text-muted);font-size:0.78rem">Solo lectura — registro inmutable de todas las acciones</p>
+          </div>
+          <span id="log-count" style="color:var(--clr-text-muted);font-size:0.82rem;font-family:var(--font-mono)"></span>
+        </div>
+
+        <!-- Filtros -->
+        <div class="data-table-wrap" style="margin-bottom:var(--sp-4)">
+          <div class="data-table-toolbar" style="flex-wrap:wrap;gap:var(--sp-3)">
+            <!-- Búsqueda texto -->
+            <div class="data-table-search" style="flex:1;min-width:200px">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="log-busqueda" class="form-input" placeholder="Buscar usuario, acción, módulo, referencia...">
+            </div>
+            <!-- Fechas -->
+            <div style="display:flex;gap:var(--sp-2);align-items:center">
+              <label style="font-size:0.75rem;color:var(--clr-text-muted);white-space:nowrap">Desde</label>
+              <input type="date" id="log-desde" class="form-input" style="width:145px">
+            </div>
+            <div style="display:flex;gap:var(--sp-2);align-items:center">
+              <label style="font-size:0.75rem;color:var(--clr-text-muted);white-space:nowrap">Hasta</label>
+              <input type="date" id="log-hasta" class="form-input" style="width:145px">
+            </div>
+            <!-- Módulo -->
+            <select id="log-modulo" class="form-select" style="width:160px">
+              <option value="">Todos los módulos</option>
+              <option>Auth</option>
+              <option>Entradas</option>
+              <option>Devoluciones</option>
+              <option>Canasillas</option>
+              <option>Maestros</option>
+              <option>Usuarios</option>
+              <option>Reportes</option>
+            </select>
+            <!-- Resultado -->
+            <select id="log-resultado" class="form-select" style="width:130px">
+              <option value="">Todos</option>
+              <option value="OK">Solo OK</option>
+              <option value="ERROR">Solo Errores</option>
+            </select>
+            <!-- Limpiar -->
+            <button class="btn btn-ghost btn-sm" onclick="Log.limpiarFiltros()">✕ Limpiar</button>
+            <!-- Buscar -->
+            <button class="btn btn-secondary btn-sm" onclick="Log.buscar()">Buscar</button>
+          </div>
+        </div>
+
+        <div class="data-table-wrap">
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Timestamp</th><th>Usuario</th><th>Rol</th>
+                <th>Acción</th><th>Módulo</th><th>Referencia</th><th>Detalle</th><th>Resultado</th>
+              </tr></thead>
+              <tbody id="log-body"></tbody>
+            </table>
+          </div>
+          <div class="data-table-footer">
+            <span id="log-pagination-info" style="color:var(--clr-text-muted);font-size:0.78rem"></span>
+            <div class="pagination" id="log-pagination"></div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ── MAESTROS ── -->
+      <section id="view-maestros" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title">Maestros</h1>
+          <button class="btn btn-primary" id="maestro-nuevo-btn">+ Nuevo</button>
+        </div>
+        <div class="tabs">
+          <div class="tab active" data-maestro-tab="Proveedores">Proveedores</div>
+          <div class="tab" data-maestro-tab="Clientes">Clientes</div>
+          <div class="tab" data-maestro-tab="Productos">Productos</div>
+          <div class="tab" data-maestro-tab="TiposCanasilla">Tipos de Canasilla</div>
+        </div>
+        <div class="data-table-wrap maestros-tab-content">
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>ID</th><th>Nombre</th><th>Detalle</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody id="maestros-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── USUARIOS ── -->
+      <section id="view-usuarios" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title">Gestión de Usuarios</h1>
+          <button class="btn btn-primary" id="usuario-nuevo-btn">+ Nuevo usuario</button>
+        </div>
+        <div class="data-table-wrap">
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Acciones</th>
+              </tr></thead>
+              <tbody id="usuarios-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main><!-- /main-content -->
+  </div><!-- /app-body -->
+</div><!-- /app-shell -->
+
+<!-- ── SOPORTE TÉCNICO (Techfix) ── -->
+<div id="support-container">
+  <button id="support-toggle" title="Soporte Técnico">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+  </button>
+  
+  <div id="support-chat" class="hidden">
+    <div class="support-header">
+      <div class="support-avatar">T</div>
+      <div>
+        <div class="support-name">Soporte Techfix</div>
+        <div class="support-status"><span class="status-dot"></span> En línea</div>
+      </div>
+      <button class="support-close" onclick="toggleSupportChat()">✕</button>
+    </div>
+    <div class="support-body">
+      <div class="chat-msg">¡Hola! 👋 Bienvenido al soporte de <strong>Basket Flow</strong> administrado por <strong>Techfix</strong>.</div>
+      <div class="chat-msg">¿En qué podemos ayudarte hoy con la aplicación?</div>
+    </div>
+    <div class="support-footer">
+      <button class="btn btn-primary btn-full" onclick="redirectToWhatsApp()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+        Chat por WhatsApp
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPTS (order matters) -->
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/modules.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
