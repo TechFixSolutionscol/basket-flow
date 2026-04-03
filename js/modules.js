@@ -102,6 +102,7 @@ const Dashboard = (() => {
 const Entradas = (() => {
   let _canasillasCount = 0;
   let _currentPage = 1;
+  let _clockInterval = null;
 
   // ── NEW ENTRY FORM ────────────────────────────────────────────────────────
   function initForm() {
@@ -110,10 +111,27 @@ const Entradas = (() => {
     _populateSelect('entrada-producto',  masters.productos   || [], 'ID', 'Nombre');
     _populateSelect('entrada-cliente',   masters.clientes    || [], 'ID', 'Nombre', true);
 
+    // Populate Estibas
+    const estibaSel = document.getElementById('entrada-peso-estiba');
+    if (estibaSel) {
+      const listaEstibas = masters.estibas || [];
+      let optionsHTML = '<option value="0">Sin estiba — 0 kg</option>';
+      
+      if (listaEstibas.length > 0) {
+        optionsHTML += listaEstibas
+          .filter(e => e.Activo !== false)
+          .map(e => `<option value="${parseFloat(e.Peso || 0)}">${Utils.sanitize(e.Nombre)} — ${parseFloat(e.Peso || 0)} kg</option>`)
+          .join('');
+      }
+      
+      estibaSel.innerHTML = optionsHTML;
+    }
+
     // Auto-fill consecutive and datetime
     document.getElementById('entrada-consecutivo').value = 'BF-' + new Date().getFullYear() + '-XXXXX';
+    document.getElementById('entrada-referencia').value = '';
     _updateDateTime();
-    setInterval(_updateDateTime, 1000);
+    if (!_clockInterval) _clockInterval = setInterval(_updateDateTime, 1000);
 
     // Init canasilla lines
     _canasillasCount = 0;
@@ -158,8 +176,8 @@ const Entradas = (() => {
         <option value="empresa">Empresa</option>
         ${(masters.proveedores||[]).map(p => `<option value="${p.ID}">${p.Nombre}</option>`).join('')}
       </select>
-      <select class="form-select can-peso" onchange="Entradas._calcularPeso()">
-        ${tipos.map(t => `<option value="${t.PesoUnitario}">${t.Descripcion} (${t.PesoUnitario} kg)</option>`).join('')}
+      <select class="form-select can-tipo" onchange="Entradas._calcularPeso()">
+        ${tipos.map(t => `<option value="${t.ID}" data-peso="${t.PesoUnitario}">${t.Descripcion} (${t.PesoUnitario} kg)</option>`).join('')}
       </select>
       <input type="number" class="form-input can-cantidad" min="0" value="0" placeholder="0" oninput="Entradas._calcularPeso()">
       <span class="subtotal mono" id="sub-${idx}">0.0 kg</span>
@@ -182,7 +200,8 @@ const Entradas = (() => {
     let totalUnidades  = 0;
 
     document.querySelectorAll('.canasilla-line').forEach((row, i) => {
-      const peso     = parseFloat(row.querySelector('.can-peso')?.value)     || 0;
+      const tipoSel  = row.querySelector('.can-tipo');
+      const peso     = parseFloat(tipoSel?.selectedOptions[0]?.dataset.peso) || 0;
       const cantidad = parseInt(row.querySelector('.can-cantidad')?.value, 10) || 0;
       const subtotal = peso * cantidad;
       pesoCanasillas += subtotal;
@@ -222,15 +241,18 @@ const Entradas = (() => {
     const canasillas = [];
     document.querySelectorAll('.canasilla-line').forEach(row => {
       const ownerSel = row.querySelector('.can-owner');
-      const peso     = parseFloat(row.querySelector('.can-peso')?.value);
+      const tipoSel  = row.querySelector('.can-tipo');
       const cantidad = parseInt(row.querySelector('.can-cantidad')?.value, 10);
+      const peso     = parseFloat(tipoSel?.selectedOptions[0]?.dataset.peso) || 0;
+
       if (cantidad > 0) {
         canasillas.push({
+          tipoCanasillaID:   tipoSel?.value,
           propietarioTipo:   ownerSel?.value === 'empresa' ? 'Empresa' : 'Proveedor',
           propietarioID:     ownerSel?.value || 'empresa',
           propietarioNombre: ownerSel?.selectedOptions[0]?.textContent || 'Empresa',
-          pesoUnitario: peso,
-          cantidad,
+          pesoUnitario:      peso,
+          cantidad:          cantidad
         });
       }
     });
@@ -246,9 +268,10 @@ const Entradas = (() => {
       productoNombre:  prodSel?.selectedOptions[0]?.dataset.nombre || '',
       clienteID:       cliSel?.value  || '',
       clienteNombre:   cliSel?.selectedOptions[0]?.dataset.nombre || 'Sin cliente',
-      pesoBascula:     parseFloat(document.getElementById('entrada-peso-bascula')?.value),
+      pesoBascula:     parseFloat(document.getElementById('entrada-peso-bascula')?.value || 0),
       pesoEstiba:      parseFloat(document.getElementById('entrada-peso-estiba')?.value) || 0,
       canasillas,
+      referencia:      document.getElementById('entrada-referencia')?.value || '',
       comentarios:     document.getElementById('entrada-comentarios')?.value || '',
     };
 
@@ -529,10 +552,112 @@ const Entradas = (() => {
      'entradas-filter-desde','entradas-filter-hasta'].forEach(id => {
       document.getElementById(id)?.addEventListener('change', () => initGrid(1));
     });
+    document.getElementById('entradas-btn-resumen')?.addEventListener('click', _showDailySummary);
+  }
+
+  async function _showDailySummary() {
+    const filters = _getGridFilters();
+    // Default to today if no date range
+    if (!filters.desde) filters.desde = new Date().toISOString().split('T')[0];
+    if (!filters.hasta) filters.hasta = filters.desde;
+
+    Utils.showToast('Calculando resumen diario...', 'info');
+    
+    // Fetch all for current day/range (no pagination) and basket summary
+    const [res, resBaskets] = await Promise.all([
+      API.get('getEntradas', { ...filters, page: 1, size: 500 }),
+      API.get('getResumenCanastasEntrada', filters)
+    ]);
+
+    if (!res.ok) { Utils.showToast('Error al cargar datos.', 'error'); return; }
+
+    const items = (res.items || []).filter(e => e.Estado !== 'Anulada');
+    if (items.length === 0) {
+      Utils.showToast('No hay entradas activas para este rango.', 'warning');
+      return;
+    }
+
+    // Consolidation
+    const groups = {};
+    items.forEach(e => {
+      const key = `${e.ProveedorID}|${e.ProductoID}`;
+      if (!groups[key]) {
+        groups[key] = {
+          proveedor: e.ProveedorNombre,
+          producto:  e.ProductoNombre,
+          pesoBruto: 0,
+          pesoNeto:  0,
+          consecutivos: [],
+        };
+      }
+      groups[key].pesoBruto += parseFloat(e.PesoBascula || 0);
+      groups[key].pesoNeto  += parseFloat(e.PesoLibre || 0);
+      groups[key].consecutivos.push(e.Consecutivo);
+    });
+
+    const modal = document.getElementById('modal-overlay');
+    const body  = document.getElementById('modal-body-content');
+    const title = document.getElementById('modal-title');
+    if (!modal || !body) return;
+
+    if (title) title.textContent = `Resumen Diario — ${filters.desde} al ${filters.hasta}`;
+
+    const resumenCanastas = resBaskets.ok ? resBaskets.resumen : {};
+
+    let html = `
+      <div style="margin-bottom:var(--sp-4); padding:var(--sp-4); background:rgba(0,210,180,0.05); border:1px solid var(--clr-border); border-radius:var(--radius-md)">
+        <p style="font-size:0.85rem; color:var(--clr-text-muted)">Mostrando resumen operativo de <strong>${items.length}</strong> pesajes.</p>
+        <div style="margin-top:var(--sp-3); display:flex; gap:var(--sp-4); flex-wrap:wrap">
+          ${Object.values(resumenCanastas).map(c => `
+            <div style="background:var(--clr-bg-01); padding:var(--sp-2) var(--sp-3); border-radius:var(--radius-sm); border-left:3px solid var(--clr-accent-cyan)">
+              <span style="font-size:0.7rem; color:var(--clr-text-muted); display:block; text-transform:uppercase">${Utils.sanitize(c.nombre)}</span>
+              <span style="font-weight:700; color:var(--clr-accent-cyan)">${c.cantidad} uds</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Proveedor / Producto</th>
+              <th style="text-align:right">Peso Bruto</th>
+              <th style="text-align:right">Peso Neto (Devoluciones)</th>
+              <th style="text-align:right">Pesajes</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    Object.values(groups).forEach(g => {
+      html += `
+        <tr>
+          <td>
+            <div style="font-weight:700; color:var(--clr-accent-cyan); font-size:1rem">${Utils.sanitize(g.proveedor)}</div>
+            <div style="font-size:0.8rem; color:var(--clr-text-muted); font-family:var(--font-mono)">${Utils.sanitize(g.producto)}</div>
+          </td>
+          <td class="mono" style="text-align:right">${Utils.formatWeight(g.pesoBruto)}</td>
+          <td class="mono" style="text-align:right; font-weight:700; color:var(--clr-accent-amber); font-size:1.1rem">${Utils.formatWeight(g.pesoNeto)}</td>
+          <td class="mono" style="text-align:right; font-size:0.7rem">${g.consecutivos.length} pes.</td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:var(--sp-4); font-size:0.75rem; color:var(--clr-text-muted); font-style:italic">
+        * El <strong>Peso Neto</strong> es el valor base para calcular devoluciones comerciales.
+      </p>
+    `;
+
+    body.innerHTML = html;
+    modal.style.display = 'flex';
   }
 
   return { init: initGrid, initForm, initGrid, _calcularPeso, _addCanasilla, _removeCanasilla,
-           _openDetalle, _generatePDF, _openEdit, initSearchListeners };
+           _openDetalle, _generatePDF, _openEdit, _showDailySummary, initSearchListeners };
 })();
 
 // ===== BASKET FLOW — CANASILLAS MODULE =====
@@ -553,6 +678,49 @@ const Canasillas = (() => {
 
     if (resStock.ok) _renderStock(resStock.stock || []);
     await _loadMovimientos();
+    
+    document.getElementById('can-abrir-ajuste-btn')?.addEventListener('click', _abrirModalAjuste);
+    document.getElementById('aj-can-guardar-btn')?.addEventListener('click', _guardarAjuste);
+  }
+
+  function _abrirModalAjuste() {
+    const tipos = App.getMasters()?.canasillas || [];
+    const select = document.getElementById('aj-can-tipo');
+    if (select) {
+      select.innerHTML = tipos.map(t => `<option value="${t.ID}">${Utils.sanitize(t.Descripcion)}</option>`).join('');
+    }
+    document.getElementById('aj-can-cantidad').value = '';
+    document.getElementById('aj-can-motivo').value = '';
+    UI.showModal('modal-can-ajuste');
+  }
+
+  async function _guardarAjuste() {
+    const tipoCanasillaID = document.getElementById('aj-can-tipo')?.value;
+    const cantidad = parseInt(document.getElementById('aj-can-cantidad')?.value, 10);
+    const motivo   = document.getElementById('aj-can-motivo')?.value;
+
+    if (!tipoCanasillaID || isNaN(cantidad) || !motivo) {
+      return UI.showToast('Por favor completa todos los campos obligatorios.', 'error');
+    }
+
+    UI.loading(true);
+    const res = await API.get('crearAjuste', {
+      propietarioTipo: 'Empresa',
+      propietarioID:   'BASKET_FLOW',
+      propietarioNombre: 'Empresa',
+      tipoCanasillaID,
+      cantidad,
+      motivo
+    });
+    UI.loading(false);
+
+    if (res.ok) {
+      UI.showToast('Ajuste de stock realizado correctamente.');
+      UI.hideModal('modal-can-ajuste');
+      init(); // Recargar KPIs y log
+    } else {
+      UI.showToast(res.error || 'Error al procesar el ajuste.', 'error');
+    }
   }
 
   function _setEl(id, val) {
@@ -568,9 +736,9 @@ const Canasillas = (() => {
       const low = s.PropietarioTipo === 'Empresa' && parseInt(s.StockActual, 10) < config;
       return `
         <div class="stock-card ${low ? 'alert-stock' : ''}">
-          <div class="stock-owner">${Utils.sanitize(s.PropietarioNombre)} — ${Utils.sanitize(s.PropietarioTipo)}</div>
-          <div class="stock-quantity">${s.StockActual}</div>
-          <div class="stock-peso">${Utils.formatWeight(s.PesoUnitario)} c/u</div>
+          <div class="stock-owner">${Utils.sanitize(s.PropietarioNombre)}</div>
+          <div class="stock-type">${Utils.sanitize(s.TipoNombre)}</div>
+          <div class="stock-quantity">${s.StockActual} <small>uds</small></div>
           ${low ? '<div class="stock-delta" style="color:var(--clr-danger)">⚠ Stock bajo</div>' : ''}
         </div>`;
     }).join('') || '<div class="empty-state"><p class="empty-state-title">Sin stock registrado</p></div>';
@@ -584,11 +752,11 @@ const Canasillas = (() => {
     tbody.innerHTML = (res.items || []).map(m => `
       <tr>
         <td class="mono">${Utils.formatDate(m.FechaHora)} ${Utils.formatTime(m.FechaHora)}</td>
-        <td><span class="badge ${m.Tipo==='Salida'?'badge-warning':m.Tipo==='Retorno'?'badge-active':'badge-inactive'}">${m.Tipo}</span></td>
+        <td><span class="badge ${m.Tipo==='Salida'?'badge-warning':(m.Tipo==='Retorno'||m.Tipo==='Ajuste'?'badge-active':'badge-inactive')}">${m.Tipo}</span></td>
         <td>${Utils.sanitize(m.PropietarioNombre)}</td>
-        <td class="mono">${m.Cantidad}</td>
-        <td class="mono">${Utils.formatWeight(m.PesoUnitario)}</td>
-        <td class="mono">${Utils.sanitize(m.ReferenciaDoc)}</td>
+        <td>${Utils.sanitize(m.TipoNombre)}</td>
+        <td class="mono" style="font-weight:700">${m.Cantidad}</td>
+        <td class="mono" style="font-size:0.8rem">${Utils.sanitize(m.ReferenciaDoc)}</td>
         <td>${Utils.sanitize(m.UsuarioNombre)}</td>
       </tr>`
     ).join('');
@@ -693,11 +861,13 @@ const Devoluciones = (() => {
         <td class="mono">${Utils.formatWeight(d.PesoDevuelto)}</td>
         <td><span class="badge ${d.Estado==='Aprobada'?'badge-active':d.Estado==='Rechazada'?'badge-danger':'badge-pending'}">${Utils.sanitize(d.Estado)}</span></td>
         <td>${Utils.sanitize(d.AprobadoPor||'—')}</td>
-        ${Auth.isSupervisor() && d.Estado === 'Pendiente' ? `
-        <td>
-          <button class="btn btn-primary btn-sm" onclick="Devoluciones._aprobar('${Utils.sanitize(d.Consecutivo)}')">Aprobar</button>
-          <button class="btn btn-danger btn-sm" onclick="Devoluciones._rechazar('${Utils.sanitize(d.Consecutivo)}')">Rechazar</button>
-        </td>` : '<td>—</td>'}
+        <td style="white-space:nowrap">
+          <button class="btn btn-ghost btn-sm" title="Imprimir PDF" onclick="Devoluciones._generatePDF('${Utils.sanitize(d.Consecutivo)}')">🖨️</button>
+          ${Auth.isSupervisor() && d.Estado === 'Pendiente' ? `
+            <button class="btn btn-primary btn-sm" onclick="Devoluciones._aprobar('${Utils.sanitize(d.Consecutivo)}')">Aprobar</button>
+            <button class="btn btn-danger btn-sm" onclick="Devoluciones._rechazar('${Utils.sanitize(d.Consecutivo)}')">Rechazar</button>
+          ` : ''}
+        </td>
       </tr>`
     ).join('');
   }
@@ -717,7 +887,27 @@ const Devoluciones = (() => {
     else Utils.showToast(res.error, 'error');
   }
 
-  return { init, _aprobar, _rechazar };
+  async function _generatePDF(id) {
+    const res = await API.get('getDevolucion', { id });
+    if (!res.ok) { Utils.showToast('Error al cargar datos para el PDF.', 'error'); return; }
+    const d = res.devolucion;
+    
+    // Preparar objeto para el generador
+    PDF.generateDevolucionPDF({
+      consecutivo:   d.Consecutivo,
+      entradaRef:    d.EntradaRef,
+      fechaHora:     d.FechaHora,
+      motivo:        d.Motivo,
+      proveedor:     d.proveedor,
+      producto:      d.producto,
+      pesoDevuelto:  d.PesoDevuelto,
+      nuevoPesoNeto: d.nuevoPesoNeto,
+      aprobadoPor:   d.AprobadoPor,
+      estado:        d.Estado
+    });
+  }
+
+  return { init, _aprobar, _rechazar, _generatePDF };
 })();
 
 // ===== BASKET FLOW — MAESTROS MODULE =====
@@ -753,7 +943,7 @@ const Maestros = (() => {
     if (!res.ok) { Utils.showToast('Error al cargar maestros.', 'error'); return; }
     App.invalidateMasters();
 
-    const key   = { Proveedores:'proveedores', Clientes:'clientes', Productos:'productos', TiposCanasilla:'canasillas' }[tipo] || 'proveedores';
+    const key   = { Proveedores:'proveedores', Clientes:'clientes', Productos:'productos', TiposCanasilla:'canasillas', Estibas:'estibas' }[tipo] || 'proveedores';
     const items = res[key] || [];
     items.forEach(item => { _store[item.ID] = { item: { ...item }, tipo }; });
     _renderTab(items, tipo);
@@ -775,6 +965,7 @@ const Maestros = (() => {
       const nombre  = Utils.sanitize(item.Nombre || item.Descripcion || '—');
       const detalle = Utils.sanitize(
         tipo === 'TiposCanasilla' ? `${item.PesoUnitario} kg` :
+        tipo === 'Estibas'        ? `${item.Peso} kg` :
         tipo === 'Productos'      ? (item.UnidadMedida  || '—') :
         tipo === 'Clientes'       ? (item.Tipo          || '—') :
         (item.Documento          || '—')
@@ -825,7 +1016,7 @@ const Maestros = (() => {
     if (!modal || !body) return;
 
     const isEdit    = !!item?.ID;
-    const tipoLabel = { Proveedores:'Proveedor', Clientes:'Cliente', Productos:'Producto', TiposCanasilla:'Tipo de Canasilla' }[t] || t;
+    const tipoLabel = { Proveedores:'Proveedor', Clientes:'Cliente', Productos:'Producto', TiposCanasilla:'Tipo de Canasilla', Estibas:'Estiba' }[t] || t;
     if (title) title.textContent = isEdit ? `Editar ${tipoLabel}` : `Nuevo ${tipoLabel}`;
 
     const FIELDS = {
@@ -833,6 +1024,7 @@ const Maestros = (() => {
       Clientes:       [['Nombre','Nombre',true],['Documento','Documento',false],['Tipo','Tipo (mayorista/minorista/plataforma)',false],['Contacto','Contacto',false],['Email','Email',false]],
       Productos:      [['Nombre','Nombre',true],['UnidadMedida','Unidad de Medida',false],['Categoria','Categoría',false]],
       TiposCanasilla: [['Descripcion','Descripción',true],['PesoUnitario','Peso Unitario (kg)',true]],
+      Estibas:        [['Nombre','Nombre',true],['Peso','Peso (kg)',true]],
     };
     const fields = FIELDS[t] || [];
 
@@ -1496,7 +1688,7 @@ const Configuracion = (() => {
   }
 
   function updatePreview() {
-    const logoId = document.getElementById('conf-emp-logoId')?.value?.trim();
+    const logoId = document.getElementById('conf-empresa-logoId')?.value?.trim();
     const img = document.getElementById('logo-preview-img');
     const placeholder = document.getElementById('logo-preview-placeholder');
     

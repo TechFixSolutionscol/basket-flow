@@ -21,7 +21,7 @@ function Devoluciones_crear(payload, userInfo) {
     // Calcular nuevo peso neto
     const nuevoPesoLibre = parseFloat(entrada.PesoLibre) - parseFloat(pesoDevuelto);
     if (nuevoPesoLibre < 0) throw new Error('El peso devuelto supera el peso neto de la entrada.');
-
+setup.gs
     const consecutivo = generateConsecutivo('DEV');
     const ahora       = new Date();
 
@@ -37,12 +37,13 @@ function Devoluciones_crear(payload, userInfo) {
       comentarios || ''
     ]);
 
-    // Guardar líneas de canasillas de retorno
+    // Guardar líneas de canasillas de retorno (Histórico)
     if (canasillasRetorno && canasillasRetorno.length > 0) {
       const lSheet = _getSheet('LineasCanasillasDevolucion');
       canasillasRetorno.forEach(c => {
         lSheet.appendRow([
           consecutivo,
+          c.tipoCanasillaID   || '',
           c.propietarioTipo || 'Empresa',
           c.propietarioID   || '',
           c.propietarioNombre || 'Empresa',
@@ -134,7 +135,7 @@ function Devoluciones_aprobar(id, userInfo) {
           c.propietarioTipo || 'Empresa',
           c.propietarioID   || '',
           c.propietarioNombre || 'Empresa',
-          parseFloat(c.pesoUnitario || 0),
+          c.tipoCanasillaID || 'OTRO',
           -Math.abs(parseInt(c.cantidad, 10)), // NEGATIVO: sale del stock físico hacia el proveedor
           id, userInfo
         );
@@ -218,4 +219,32 @@ function _ajustarPesoEntrada(consecutivo, pesoDevuelto, userInfo) {
   const newPeso  = Math.max(0, curr - pesoDevuelto);
   sheet.getRange(rowIdx + 2, pesoLibreIdx + 1).setValue(newPeso);
   sheet.getRange(rowIdx + 2, headers.indexOf('FechaModificacion') + 1).setValue(new Date());
+}
+
+/**
+ * Obtener una devolución con datos del estado actual de la entrada
+ */
+function Devoluciones_getOne(id, userInfo) {
+  try {
+    const dSheet = _getSheet('Devoluciones');
+    const dRows  = _sheetToObjects(dSheet);
+    const dev    = dRows.find(r => r.Consecutivo === id);
+    if (!dev) return { ok: false, error: 'Devolución no encontrada.' };
+
+    const eSheet = _getSheet('Entradas');
+    const eRows  = _sheetToObjects(eSheet);
+    const entrada = eRows.find(e => e.Consecutivo === dev.EntradaRef);
+
+    return { 
+      ok: true, 
+      devolucion: { 
+        ...dev, 
+        nuevoPesoNeto: entrada ? entrada.PesoLibre : 0,
+        proveedor:     entrada ? entrada.ProveedorNombre : '—',
+        producto:      entrada ? entrada.ProductoNombre : '—'
+      }
+    };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 }

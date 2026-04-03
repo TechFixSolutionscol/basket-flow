@@ -45,6 +45,14 @@ function Canasillas_getResumen(userInfo) {
 function Canasillas_getDetalle(userInfo) {
   try {
     const stock = _sheetToObjects(_getSheet('StockCanasillas'));
+    const tipos = _sheetToObjects(_getSheet('TiposCanasilla'));
+    
+    // Enriquecer con nombre del tipo
+    stock.forEach(s => {
+      const t = tipos.find(x => x.ID === s.TipoCanasillaID);
+      s.TipoNombre = t ? t.Descripcion : (s.TipoCanasillaID || 'Otro');
+    });
+
     return { ok: true, stock };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -58,6 +66,7 @@ function Canasillas_getMovimientos(payload, userInfo) {
   try {
     const { propietario, tipo, desde, hasta, page = 1, size = 50 } = payload;
     let rows = _sheetToObjects(_getSheet('MovimientosCanasillas'));
+    const tipos = _sheetToObjects(_getSheet('TiposCanasilla'));
 
     if (propietario) rows = rows.filter(r => r.PropietarioID === propietario || r.PropietarioNombre?.toLowerCase().includes(propietario.toLowerCase()));
     if (tipo)        rows = rows.filter(r => r.Tipo === tipo);
@@ -65,6 +74,13 @@ function Canasillas_getMovimientos(payload, userInfo) {
     if (hasta)       rows = rows.filter(r => new Date(r.FechaHora) <= new Date(hasta + 'T23:59:59'));
 
     rows.sort((a, b) => new Date(b.FechaHora) - new Date(a.FechaHora));
+    
+    // Enriquecer
+    rows.forEach(r => {
+      const t = tipos.find(x => x.ID === r.TipoCanasillaID);
+      r.TipoNombre = t ? t.Descripcion : (r.TipoCanasillaID || 'Otro');
+    });
+
     return { ok: true, ..._paginate(rows, page, size) };
 
   } catch (err) {
@@ -79,19 +95,20 @@ function Canasillas_crearAjuste(payload, userInfo) {
   try {
     _requirePermission(userInfo, 'canasillas.ajuste');
     const { propietarioTipo, propietarioID, propietarioNombre,
-            pesoUnitario, cantidad, motivo } = payload;
+            tipoCanasillaID, cantidad, motivo } = payload;
     if (!motivo) throw new Error('El motivo del ajuste es obligatorio.');
 
     const delta = parseInt(cantidad, 10);
     _actualizarStock(propietarioTipo, propietarioID, propietarioNombre,
-                     parseFloat(pesoUnitario), delta, `AJUSTE-${userInfo.userId}`, userInfo);
+                     tipoCanasillaID, delta, `AJUSTE-${userInfo.userId}`, userInfo);
 
-    // Cambiar tipo del movimiento a 'Ajuste'
+    // Ajustar el tipo en el log (fue creado como 'Retorno' o 'Salida' por _actualizarStock)
     const mSheet = _getSheet('MovimientosCanasillas');
     const data   = mSheet.getDataRange().getValues();
     const lastRow = data.length;
+    // La columna 3 es 'Tipo', la columna 12 es 'Notas' (antes 13, pero ahora quitamos PesoUnitario)
     mSheet.getRange(lastRow, 3).setValue('Ajuste');
-    mSheet.getRange(lastRow, 11).setValue(motivo);
+    mSheet.getRange(lastRow, 12).setValue(motivo);
 
     Log_write(userInfo, 'AJUSTE_CANASILLA', 'Canasillas', propietarioID,
       `Ajuste ${delta > 0 ? '+' : ''}${delta} uds — ${motivo}`, 'OK');

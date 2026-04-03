@@ -8,7 +8,7 @@ function Reportes_getDashboardKPIs(userInfo) {
 
     const entradas = _sheetToObjects(_getSheet('Entradas'));
     const hoyEntradas = entradas.filter(e => {
-      const f = new Date(e.FechaHora);
+      const f = new Date(e.FechaCreacion);
       return f >= inicio && f <= fin && e.Estado !== 'Anulada';
     });
 
@@ -24,14 +24,14 @@ function Reportes_getDashboardKPIs(userInfo) {
       hourBuckets[label] = 0;
     }
     hoyEntradas.forEach(e => {
-      const f = new Date(e.FechaHora);
+      const f = new Date(e.FechaCreacion);
       const label = `${String(f.getHours()).padStart(2,'0')}:00`;
       if (hourBuckets[label] !== undefined) hourBuckets[label]++;
     });
 
     // Últimas 5 entradas
     const ultimas = hoyEntradas
-      .sort((a,b) => new Date(b.FechaHora) - new Date(a.FechaHora))
+      .sort((a,b) => new Date(b.FechaCreacion) - new Date(a.FechaCreacion))
       .slice(0, 5);
 
     return {
@@ -58,7 +58,7 @@ function Reportes_getDiario(payload, userInfo) {
     const fin    = new Date(día); fin.setHours(23,59,59,999);
 
     const entradas = _sheetToObjects(_getSheet('Entradas')).filter(e => {
-      const f = new Date(e.FechaHora);
+      const f = new Date(e.FechaCreacion);
       return f >= inicio && f <= fin && e.Estado !== 'Anulada';
     });
 
@@ -78,7 +78,7 @@ function Reportes_getDiario(payload, userInfo) {
     }));
 
     const devs = _sheetToObjects(_getSheet('Devoluciones')).filter(d => {
-      const f = new Date(d.FechaHora);
+      const f = new Date(d.FechaCreacion);
       return f >= inicio && f <= fin;
     });
 
@@ -104,7 +104,7 @@ function Reportes_getProveedor(payload, userInfo) {
     const entradas = _sheetToObjects(_getSheet('Entradas')).filter(e => {
       if (e.ProveedorID !== proveedorId) return false;
       if (e.Estado === 'Anulada') return false;
-      const f = new Date(e.FechaHora);
+      const f = new Date(e.FechaCreacion);
       if (desde && f < new Date(desde)) return false;
       if (hasta && f > new Date(hasta + 'T23:59:59')) return false;
       return true;
@@ -124,7 +124,7 @@ function Reportes_getCliente(payload, userInfo) {
     const entradas = _sheetToObjects(_getSheet('Entradas')).filter(e => {
       if (e.ClienteID !== clienteId) return false;
       if (e.Estado === 'Anulada') return false;
-      const f = new Date(e.FechaHora);
+      const f = new Date(e.FechaCreacion);
       if (desde && f < new Date(desde)) return false;
       if (hasta && f > new Date(hasta + 'T23:59:59')) return false;
       return true;
@@ -141,7 +141,7 @@ function Reportes_getProducto(payload, userInfo) {
     const entradas = _sheetToObjects(_getSheet('Entradas')).filter(e => {
       if (e.ProductoID !== productoId) return false;
       if (e.Estado === 'Anulada') return false;
-      const f = new Date(e.FechaHora);
+      const f = new Date(e.FechaCreacion);
       if (desde && f < new Date(desde)) return false;
       if (hasta && f > new Date(hasta + 'T23:59:59')) return false;
       return true;
@@ -152,7 +152,7 @@ function Reportes_getProducto(payload, userInfo) {
     // Por semana
     const porSemana = {};
     entradas.forEach(e => {
-      const f = new Date(e.FechaHora);
+      const f = new Date(e.FechaCreacion);
       const semana = `${f.getFullYear()}-W${String(Math.ceil(f.getDate()/7)).padStart(2,'0')}`;
       if (!porSemana[semana]) porSemana[semana] = { semana, kg: 0, entregas: 0 };
       porSemana[semana].kg += parseFloat(e.PesoLibre) || 0;
@@ -176,7 +176,7 @@ function Reportes_getChartData(payload, userInfo) {
       labels.push(label);
       const dayStr = d.toDateString();
       const kg = entradas
-        .filter(e => new Date(e.FechaHora).toDateString() === dayStr)
+        .filter(e => new Date(e.FechaCreacion).toDateString() === dayStr)
         .reduce((s, e) => s + (parseFloat(e.PesoLibre) || 0), 0);
       porDia.push(parseFloat(kg.toFixed(1)));
     }

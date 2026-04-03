@@ -324,16 +324,44 @@ const PDF = (() => {
   function generateDevolucionPDF(dev) {
     const doc = _getDoc();
     let y = _addHeader(doc,
-      `Devolución — ${dev.consecutivo || '—'}`,
-      `Ref. entrada: ${dev.entradaRef} · ${Utils.formatDateTime(dev.fechaHora)}`
+      `Comprobante de Devolución — ${dev.consecutivo || '—'}`,
+      `Ref. entrada original: ${dev.entradaRef} · ${Utils.formatDateTime(dev.fechaHora)}`
     );
 
-    y = _addFieldRow(doc, y, 'Motivo',          dev.motivo);
-    y = _addFieldRow(doc, y, 'Peso devuelto',   Utils.formatWeight(dev.pesoDevuelto), true);
-    y = _addFieldRow(doc, y, 'Nuevo peso neto', Utils.formatWeight(dev.nuevoPesoNeto), true);
-    y = _addFieldRow(doc, y, 'Aprobado por',    dev.aprobadoPor || 'Pendiente');
-    y = _addFieldRow(doc, y, 'Estado',          dev.estado);
-    y += 10;
+    // Section: Identificación
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 210, 180);
+    doc.text('DATOS DE LA DEVOLUCIÓN', 14, y);
+    y += 6;
+
+    y = _addFieldRow(doc, y, 'Proveedor',  dev.proveedor);
+    y = _addFieldRow(doc, y, 'Producto',   dev.producto);
+    y = _addFieldRow(doc, y, 'Motivo',     dev.motivo);
+    y = _addFieldRow(doc, y, 'Estado',     dev.estado);
+    if (dev.aprobadoPor) y = _addFieldRow(doc, y, 'Aprobado por', dev.aprobadoPor);
+    y += 4;
+
+    // Section: Pesos
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 210, 180);
+    doc.text('AJUSTE DE PESOS', 14, y);
+    y += 6;
+
+    y = _addFieldRow(doc, y, 'Peso devuelto (Merma)', Utils.formatWeight(dev.pesoDevuelto), true);
+    
+    // Nuevo peso neto destacado
+    y += 4;
+    doc.setFillColor(255, 245, 230); // Ligh orange for "Alert/Change"
+    doc.roundedRect(14, y - 2, 182, 14, 2, 2, 'F');
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(180, 100, 0);
+    doc.text('NUEVO PESO NETO (POST-DEV):', 16, y + 7);
+    doc.setFontSize(14);
+    doc.setTextColor(200, 50, 50);
+    doc.text(Utils.formatWeight(dev.nuevoPesoNeto), 130, y + 8);
+    y += 24;
 
     _addSignatureLine(doc, y, 'Firma del Supervisor');
     _addFooter(doc);

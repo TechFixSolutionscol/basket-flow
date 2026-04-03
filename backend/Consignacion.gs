@@ -61,7 +61,7 @@ function Consignacion_registrarMovimiento(payload, userInfo) {
 
     // Sincronizar con Stock Físico de la Empresa
     const deltaStock = (tipo === 'RETORNO') ? qty : -qty;
-    _actualizarStock('Empresa', 'BASKET_FLOW', 'Empresa', parseFloat(canasilla.PesoUnitario), deltaStock, id, userInfo);
+    _actualizarStock('Empresa', 'BASKET_FLOW', 'Empresa', tipoCanasillaId, deltaStock, id, userInfo);
 
     Log_write(userInfo, `CONSIGNACION_${tipo}`, 'Consignacion', id,
       `${tipo} ${qty} ${canasilla.Descripcion} → ${entidad.Nombre} (${entidadTipo})`, 'OK');

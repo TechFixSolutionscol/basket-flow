@@ -55,12 +55,14 @@ function doPost(e) {
       case 'crearEntrada':       result = Entradas_crear(payload, userInfo); break;
       case 'getEntradas':        result = Entradas_getList(payload, userInfo); break;
       case 'getEntrada':         result = Entradas_getOne(payload.id, userInfo); break;
+      case 'getResumenCanastasEntrada': result = Entradas_getResumenCanastas(payload, userInfo); break;
       case 'editarEntrada':      result = Entradas_editar(payload, userInfo); break;
       case 'anularEntrada':      result = Entradas_anular(payload.id, userInfo); break;
 
       // ── Devoluciones ──
       case 'crearDevolucion':    result = Devoluciones_crear(payload, userInfo); break;
       case 'getDevoluciones':    result = Devoluciones_getList(payload, userInfo); break;
+      case 'getDevolucion':      result = Devoluciones_getOne(payload.id, userInfo); break;
       case 'aprobarDevolucion':  result = Devoluciones_aprobar(payload.id, userInfo); break;
       case 'rechazarDevolucion': result = Devoluciones_rechazar(payload, userInfo); break;
 

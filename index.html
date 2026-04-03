@@ -406,9 +406,9 @@
                 </div>
                 <div class="scale-error-msg" id="scale-error" style="display:none">⚠ ERROR: Peso inválido — revisa los datos ingresados</div>
                 <div class="scale-breakdown">
-                  <div class="scale-breakdown-item"><span class="sb-key">Canasillas</span><span class="sb-val" id="scale-canasillas">0.0 kg</span></div>
-                  <div class="scale-breakdown-item"><span class="sb-key">Estiba</span><span class="sb-val" id="scale-estiba">0.0 kg</span></div>
-                  <div class="scale-breakdown-item"><span class="sb-key">Total uds</span><span class="sb-val" id="scale-unidades">0 uds</span></div>
+                  <div class="scale-breakdown-item"><span class="sb-key">Peso Descontado (Canastas)</span><span class="sb-val" id="scale-canasillas">0.0 kg</span></div>
+                  <div class="scale-breakdown-item"><span class="sb-key">Peso Estiba</span><span class="sb-val" id="scale-estiba">0.0 kg</span></div>
+                  <div class="scale-breakdown-item"><span class="sb-key">Recuento Unidades (Canastas)</span><span class="sb-val" id="scale-unidades">0 uds</span></div>
                 </div>
               </div>
 
@@ -424,11 +424,12 @@
                   <div class="form-group">
                     <label class="form-label">Peso estiba</label>
                     <select id="entrada-peso-estiba" class="form-select">
-                      <option value="0">Sin estiba — 0 kg</option>
-                      <option value="0.5">Estiba pequeña — 0.5 kg</option>
-                      <option value="1">Estiba media — 1.0 kg</option>
-                      <option value="1.5">Estiba grande — 1.5 kg</option>
+                      <option value="0">Seleccionar...</option>
                     </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Referencia / Lote / N° Remisión</label>
+                    <input type="text" id="entrada-referencia" class="form-input" placeholder="Opcional: ej. REM-101 o PLACA-V101">
                   </div>
                 </div>
               </div>
@@ -462,6 +463,7 @@
             <p class="page-subtitle" id="entradas-count">—</p>
           </div>
           <div style="display:flex;gap:var(--sp-3)">
+            <button class="btn btn-secondary btn-sm" id="entradas-btn-resumen">📊 Ver Resumen Diario</button>
             <button class="btn btn-secondary btn-sm" onclick="Utils.exportCSV([], [], 'entradas.csv')">Exportar CSV</button>
             <button class="btn btn-primary btn-sm" onclick="App.navigate('nueva-entrada')">+ Nueva entrada</button>
           </div>
@@ -600,8 +602,9 @@
 
       <!-- ── CANASILLAS ── -->
       <section id="view-canasillas" style="display:none">
-        <div class="page-header">
+        <div class="page-header" style="justify-content:space-between">
           <h1 class="page-title">Control de Canasillas</h1>
+          <button class="btn btn-primary" id="can-abrir-ajuste-btn">NUEVO AJUSTE / CARGA</button>
         </div>
 
         <div class="kpi-grid stagger-in">
@@ -627,7 +630,7 @@
             <table class="data-table">
               <thead><tr>
                 <th>Fecha/Hora</th><th>Tipo</th><th>Propietario</th>
-                <th>Cantidad</th><th>Peso Unit.</th><th>Referencia</th><th>Usuario</th>
+                <th>Canasilla</th><th>Cantidad</th><th>Referencia</th><th>Usuario</th>
               </tr></thead>
               <tbody id="movimientos-body"></tbody>
             </table>
@@ -724,40 +727,6 @@
           </div>
         </div>
 
-        <!-- Modal de Movimiento -->
-        <div class="modal-overlay" id="modal-consig" style="display:none;z-index:var(--z-overlay)">
-          <div class="modal card" style="max-width:450px">
-            <h2 class="card-title" id="modal-consig-title" style="margin-bottom:var(--sp-4)">Registro Consignación</h2>
-            <div class="modal-body">
-              <input type="hidden" id="mc-tipo">
-              <input type="hidden" id="mc-entidad-tipo">
-              <div class="form-group">
-                <label class="form-label" id="mc-entidad-label">Entidad *</label>
-                <select id="mc-entidad" class="form-select"></select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Tipo de Canasilla *</label>
-                <select id="mc-canasilla" class="form-select"></select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Cantidad *</label>
-                <input type="number" id="mc-cantidad" class="form-input" min="1" placeholder="Ej: 10">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Referencia (opcional)</label>
-                <input type="text" id="mc-referencia" class="form-input" placeholder="N° Remisión, Factura, etc.">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Notas (opcional)</label>
-                <textarea id="mc-notas" class="form-input" rows="2" placeholder="Observaciones extras"></textarea>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" onclick="document.getElementById('modal-consig').style.display='none'">Cancelar</button>
-              <button class="btn btn-primary" id="mc-save-btn" onclick="Consignacion.guardar()">Confirmar</button>
-            </div>
-          </div>
-        </div>
       </section>
 
       <!-- ── BAJAS (MERMAS) ── -->
@@ -799,38 +768,6 @@
           </div>
         </div>
 
-        <!-- Modal de Baja -->
-        <div class="modal-overlay" id="modal-baja" style="display:none;z-index:var(--z-overlay)">
-          <div class="modal card" style="max-width:400px">
-            <h2 class="card-title" style="margin-bottom:var(--sp-4)">Registrar Baja</h2>
-            <div class="modal-body">
-              <div class="form-group">
-                <label class="form-label">Tipo de Canasilla *</label>
-                <select id="baja-canasilla" class="form-select"></select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Cantidad *</label>
-                <input type="number" id="baja-cantidad" class="form-input" min="1" placeholder="Uds. afectadas">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Motivo de Baja *</label>
-                <select id="baja-motivo" class="form-select">
-                  <option value="ROTURA">Rotura / Daño físico</option>
-                  <option value="PERDIDA">Pérdida / Extravío</option>
-                  <option value="DAÑO_IRREPARABLE">Daño irreparable</option>
-                  <option value="OTRO">Otro</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Notas / Detalle</label>
-                <textarea id="baja-notas" class="form-input" rows="2" placeholder="Explica cómo ocurrió..."></textarea>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" onclick="document.getElementById('modal-baja').style.display='none'">Cancelar</button>
-              <button class="btn btn-primary" id="baja-save-btn">Confirmar Baja</button>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -970,29 +907,29 @@
                 <h3 style="margin-bottom:var(--sp-4); color:var(--clr-accent-cyan); font-size:0.8rem; text-transform:uppercase; letter-spacing:1.5px; font-family:var(--font-display)">Identidad Legal</h3>
                 <div class="form-group" style="margin-bottom:var(--sp-4)">
                   <label class="form-label">Nombre de la compañía</label>
-                  <input type="text" id="conf-emp-nombre" class="form-input" placeholder="Ej. Basket Flow S.A.S.">
+                  <input type="text" id="conf-empresa-nombre" class="form-input" placeholder="Ej. Basket Flow S.A.S.">
                 </div>
                 <div class="form-group" style="margin-bottom:var(--sp-4)">
                   <label class="form-label">NIF / NIT</label>
-                  <input type="text" id="conf-emp-nit" class="form-input" placeholder="901420712">
+                  <input type="text" id="conf-empresa-nit" class="form-input" placeholder="901420712">
                 </div>
                 <div class="form-group" style="margin-bottom:var(--sp-4)">
                   <label class="form-label">Dirección</label>
-                  <input type="text" id="conf-emp-direccion" class="form-input" placeholder="Ej. CL 33 NO 41 66 BG 111">
+                  <input type="text" id="conf-empresa-direccion" class="form-input" placeholder="Ej. CL 33 NO 41 66 BG 111">
                 </div>
                 <div class="form-row" style="margin-bottom:var(--sp-4)">
                   <div class="form-group">
                     <label class="form-label">Ciudad / Depto</label>
-                    <input type="text" id="conf-emp-ciudad" class="form-input" placeholder="Ej. Itagüí / Antioquia">
+                    <input type="text" id="conf-empresa-ciudad" class="form-input" placeholder="Ej. Itagüí / Antioquia">
                   </div>
                   <div class="form-group">
                     <label class="form-label">País</label>
-                    <input type="text" id="conf-emp-pais" class="form-input" placeholder="Colombia">
+                    <input type="text" id="conf-empresa-pais" class="form-input" placeholder="Colombia">
                   </div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">Moneda base</label>
-                  <select id="conf-emp-moneda" class="form-select">
+                  <select id="conf-empresa-moneda" class="form-select">
                     <option value="COP">COP (Peso Colombiano)</option>
                     <option value="USD">USD (Dólar)</option>
                     <option value="EUR">EUR (Euro)</option>
@@ -1006,27 +943,27 @@
                 <div class="form-row" style="margin-bottom:var(--sp-4)">
                   <div class="form-group">
                     <label class="form-label">Teléfono</label>
-                    <input type="text" id="conf-emp-telefono" class="form-input" placeholder="324 6468264">
+                    <input type="text" id="conf-empresa-telefono" class="form-input" placeholder="324 6468264">
                   </div>
                   <div class="form-group">
                     <label class="form-label">Móvil</label>
-                    <input type="text" id="conf-emp-movil" class="form-input" placeholder="324 6468264">
+                    <input type="text" id="conf-empresa-movil" class="form-input" placeholder="324 6468264">
                   </div>
                 </div>
                 <div class="form-group" style="margin-bottom:var(--sp-4)">
                   <label class="form-label">Correo electrónico</label>
-                  <input type="email" id="conf-emp-email" class="form-input" placeholder="contacto@empresa.com">
+                  <input type="email" id="conf-empresa-email" class="form-input" placeholder="contacto@empresa.com">
                 </div>
                 <div class="form-group" style="margin-bottom:var(--sp-4)">
                   <label class="form-label">Sitio web</label>
-                  <input type="url" id="conf-emp-web" class="form-input" placeholder="https://lcmoon.com.co/">
+                  <input type="url" id="conf-empresa-web" class="form-input" placeholder="https://lcmoon.com.co/">
                 </div>
                 
                 <div style="margin-top:var(--sp-6); padding:var(--sp-4); border:1px solid var(--clr-border); border-radius:var(--radius-md); background:var(--clr-bg-03)">
                   <div class="form-group">
                     <label class="form-label">ID Logo (Drive)</label>
                     <div class="form-input-wrap">
-                      <input type="text" id="conf-emp-logoId" class="form-input" placeholder="Pega el ID del archivo..." oninput="Configuracion.updatePreview()">
+                      <input type="text" id="conf-empresa-logoId" class="form-input" placeholder="Pega el ID del archivo..." oninput="Configuracion.updatePreview()">
                     </div>
                   </div>
                   <div id="logo-preview-container" style="margin-top:var(--sp-4); min-height:80px; display:flex; align-items:center; justify-content:center; border:1px dashed var(--clr-border); border-radius:var(--radius-sm); position:relative; overflow:hidden">
@@ -1076,6 +1013,7 @@
           <div class="tab" data-maestro-tab="Clientes">Clientes</div>
           <div class="tab" data-maestro-tab="Productos">Productos</div>
           <div class="tab" data-maestro-tab="TiposCanasilla">Tipos de Canasilla</div>
+          <div class="tab" data-maestro-tab="Estibas">Estibas</div>
         </div>
         <div class="data-table-wrap maestros-tab-content">
           <div style="overflow-x:auto">
@@ -1106,6 +1044,106 @@
       </section>
 
     </main><!-- /main-content -->
+
+    <!-- ── MODALES GLOBALES (Independientes de la vista SPA) ── -->
+    
+    <!-- Modal de Consignación -->
+    <div class="modal-overlay" id="modal-consig" style="display:none;z-index:var(--z-overlay)">
+      <div class="modal card" style="max-width:450px">
+        <h2 class="card-title" id="modal-consig-title" style="margin-bottom:var(--sp-4)">Registro Consignación</h2>
+        <div class="modal-body">
+          <input type="hidden" id="mc-tipo">
+          <input type="hidden" id="mc-entidad-tipo">
+          <div class="form-group">
+            <label class="form-label" id="mc-entidad-label">Entidad *</label>
+            <select id="mc-entidad" class="form-select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de Canasilla *</label>
+            <select id="mc-canasilla" class="form-select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cantidad *</label>
+            <input type="number" id="mc-cantidad" class="form-input" min="1" placeholder="Ej: 10">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Referencia (opcional)</label>
+            <input type="text" id="mc-referencia" class="form-input" placeholder="N° Remisión, Factura, etc.">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notas (opcional)</label>
+            <textarea id="mc-notas" class="form-input" rows="2" placeholder="Observaciones extras"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="UI.hideModal('modal-consig')">Cancelar</button>
+          <button class="btn btn-primary" id="mc-save-btn" onclick="Consignacion.guardar()">Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Ajuste Directo de Canasillas -->
+    <div class="modal-overlay" id="modal-can-ajuste" style="display:none;z-index:var(--z-overlay)">
+      <div class="modal card" style="max-width:450px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-4)">
+          <h2 class="card-title">Ajuste de Stock</h2>
+          <button class="btn-icon" onclick="UI.hideModal('modal-can-ajuste')">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Tipo de Canasilla *</label>
+            <select id="aj-can-tipo" class="form-select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cantidad a ajustar *</label>
+            <input type="number" id="aj-can-cantidad" class="form-input" placeholder="Ej: 100">
+            <small class="form-help">Ingresa valores positivos para cargar, negativos para descontar.</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Motivo de Ajuste *</label>
+            <textarea id="aj-can-motivo" class="form-input" rows="2" placeholder="Ej: Inventario inicial, Sobrante encontrado..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="UI.hideModal('modal-can-ajuste')">Cancelar</button>
+          <button class="btn btn-primary" id="aj-can-guardar-btn">GUARDAR AJUSTE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Baja -->
+    <div class="modal-overlay" id="modal-baja" style="display:none;z-index:var(--z-overlay)">
+      <div class="modal card" style="max-width:400px">
+        <h2 class="card-title" style="margin-bottom:var(--sp-4)">Registrar Baja</h2>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Tipo de Canasilla *</label>
+            <select id="baja-canasilla" class="form-select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cantidad *</label>
+            <input type="number" id="baja-cantidad" class="form-input" min="1" placeholder="Uds. afectadas">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Motivo de Baja *</label>
+            <select id="baja-motivo" class="form-select">
+              <option value="ROTURA">Rotura / Daño físico</option>
+              <option value="PERDIDA">Pérdida / Extravío</option>
+              <option value="DAÑO_IRREPARABLE">Daño irreparable</option>
+              <option value="OTRO">Otro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notas / Detalle</label>
+            <textarea id="baja-notas" class="form-input" rows="2" placeholder="Explica cómo ocurrió..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="UI.hideModal('modal-baja')">Cancelar</button>
+          <button class="btn btn-primary" id="baja-save-btn">Confirmar Baja</button>
+        </div>
+      </div>
+    </div>
   </div><!-- /app-body -->
 </div><!-- /app-shell -->
 

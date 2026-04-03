@@ -9,7 +9,7 @@ function Entradas_crear(payload, userInfo) {
 
     const { proveedorID, proveedorNombre, productoID, productoNombre,
             clienteID, clienteNombre, pesoBascula, pesoEstiba,
-            canasillas, comentarios } = payload;
+            canasillas, referencia, comentarios } = payload;
 
     // Validaciones básicas
     if (!proveedorID) throw new Error('Proveedor es obligatorio.');
@@ -35,7 +35,7 @@ function Entradas_crear(payload, userInfo) {
     // Guardar en hoja Entradas
     const sheet = _getSheet('Entradas');
     sheet.appendRow([
-      consecutivo, ahora,
+      consecutivo,
       proveedorID, proveedorNombre,
       productoID,  productoNombre,
       clienteID || '', clienteNombre || 'Sin cliente',
@@ -46,7 +46,7 @@ function Entradas_crear(payload, userInfo) {
       userInfo.userId, userInfo.name,
       'Activa',
       comentarios || '',
-      ahora, ahora
+      ahora, ahora // FechaCreacion, FechaModificacion
     ]);
 
     // Guardar líneas de canasillas
@@ -58,18 +58,17 @@ function Entradas_crear(payload, userInfo) {
         c.propietarioTipo || 'Empresa',
         c.propietarioID   || '',
         c.propietarioNombre || 'Empresa',
-        parseFloat(c.pesoUnitario),
+        parseFloat(c.pesoUnitario || 0),
         parseInt(c.cantidad, 10),
-        c.subtotal,
       ]);
 
       // 1. Actualizar stock físico de canasillas (Incremento en bodega)
       // Nota: delta positivo porque están entrando físicamente a la empresa
       _actualizarStock(
         c.propietarioTipo || 'Empresa',
-        c.propietarioID   || 'empresa',
+        c.propietarioID   || 'BASKET_FLOW',
         c.propietarioNombre || 'Empresa',
-        parseFloat(c.pesoUnitario),
+        c.tipoCanasillaID || 'OTRO',
         parseInt(c.cantidad, 10), 
         consecutivo, userInfo
       );
@@ -142,11 +141,11 @@ function Entradas_getList(payload, userInfo) {
     if (producto)  rows = rows.filter(r => r.ProductoID  === producto);
     if (cliente)   rows = rows.filter(r => r.ClienteID   === cliente);
     if (estado)    rows = rows.filter(r => r.Estado       === estado);
-    if (desde)     rows = rows.filter(r => new Date(r.FechaHora) >= new Date(desde));
-    if (hasta)     rows = rows.filter(r => new Date(r.FechaHora) <= new Date(hasta + 'T23:59:59'));
+    if (desde)     rows = rows.filter(r => new Date(r.FechaCreacion) >= new Date(desde));
+    if (hasta)     rows = rows.filter(r => new Date(r.FechaCreacion) <= new Date(hasta + 'T23:59:59'));
 
     // Ordenar más reciente primero
-    rows.sort((a, b) => new Date(b.FechaHora) - new Date(a.FechaHora));
+    rows.sort((a, b) => new Date(b.FechaCreacion) - new Date(a.FechaCreacion));
 
     return { ok: true, ..._paginate(rows, page, size) };
 
@@ -192,9 +191,9 @@ function Entradas_editar(payload, userInfo) {
     if (rowIdx === -1) return { ok: false, error: 'Entrada no encontrada.' };
 
     const row      = rows[rowIdx];
-    const fechaHora = new Date(row[headers.indexOf('FechaHora')]);
+    const fechaHK  = new Date(row[headers.indexOf('FechaCreacion')]);
     const today     = new Date();
-    const mismodia  = fechaHora.toDateString() === today.toDateString();
+    const mismodia  = fechaHK.toDateString() === today.toDateString();
     const mismoUser = row[headers.indexOf('UsuarioID')] === userInfo.userId;
 
     if (!mismodia)  return { ok: false, error: 'Solo puedes editar entradas del día actual.' };
@@ -246,25 +245,31 @@ function Entradas_anular(id, userInfo) {
   }
 }
 
-// ── Actualizar stock de canasillas ──────────────────────────────────────────
-function _actualizarStock(propTipo, propId, propNombre, pesoUnit, delta, refDoc, userInfo) {
+// ── Actualizar stock de canasillas (por Tipo y Propietario) ──────────────────
+function _actualizarStock(propTipo, propId, propNombre, tipoCanId, delta, refDoc, userInfo) {
   const sheet   = _getSheet('StockCanasillas');
   const data    = sheet.getDataRange().getValues();
   const headers = data[0];
   const rows    = data.slice(1);
 
-  const keyTipo = headers.indexOf('PropietarioTipo');
-  const keyId   = headers.indexOf('PropietarioID');
-  const keyPeso = headers.indexOf('PesoUnitario');
-  const keySt   = headers.indexOf('StockActual');
-  const keyDate = headers.indexOf('UltimaActualizacion');
+  const keyTipo   = headers.indexOf('PropietarioTipo');
+  const keyId     = headers.indexOf('PropietarioID');
+  const keyTipoId = headers.indexOf('TipoCanasillaID');
+  const keySt     = headers.indexOf('StockActual');
+  const keyDate   = headers.indexOf('UltimaActualizacion');
+
+  // Estandarizar ID de la empresa para evitar desincronización
+  if (propTipo === 'Empresa') {
+    propId = 'BASKET_FLOW';
+    propNombre = 'Empresa';
+  }
 
   const rowIdx = rows.findIndex(r =>
-    r[keyTipo] === propTipo && r[keyId] === propId && parseFloat(r[keyPeso]) === pesoUnit
+    r[keyTipo] === propTipo && r[keyId] === propId && r[keyTipoId] === tipoCanId
   );
 
   if (rowIdx === -1) {
-    sheet.appendRow([propTipo, propId, propNombre, pesoUnit, Math.max(0, delta), new Date()]);
+    sheet.appendRow([propTipo, propId, propNombre, tipoCanId, Math.max(0, delta), new Date()]);
   } else {
     const curr   = parseInt(rows[rowIdx][keySt], 10) || 0;
     const newVal = Math.max(0, curr + delta);
@@ -279,9 +284,51 @@ function _actualizarStock(propTipo, propId, propNombre, pesoUnit, delta, refDoc,
     `mov_${Date.now()}`,
     new Date(), tipo,
     propTipo, propId, propNombre,
-    pesoUnit, Math.abs(delta),
+    tipoCanId, Math.abs(delta),
     refDoc,
     userInfo.userId, userInfo.name,
     ''
   ]);
+}
+
+/**
+ * Obtener resumen de canasillas agrupado por tipo para un conjunto de filtros
+ * (Se usa para la vista consolidada)
+ */
+function Entradas_getResumenCanastas(payload, userInfo) {
+  try {
+    const { proveedor, producto, desde, hasta } = payload;
+    const eSheet = _getSheet('Entradas');
+    const lSheet = _getSheet('LineasCanasillasEntrada');
+    
+    let entries = _sheetToObjects(eSheet).filter(e => e.Estado !== 'Anulada');
+    if (proveedor) entries = entries.filter(e => e.ProveedorID === proveedor);
+    if (producto)  entries = entries.filter(e => e.ProductoID === producto);
+    if (desde)     entries = entries.filter(e => new Date(e.FechaCreacion) >= new Date(desde));
+    if (hasta)     entries = entries.filter(e => new Date(e.FechaCreacion) <= new Date(hasta + 'T23:59:59'));
+    
+    const validIds = entries.map(e => e.Consecutivo);
+    const lineas   = _sheetToObjects(lSheet).filter(l => validIds.includes(l.EntradaID));
+    
+    const resumen = {};
+    lineas.forEach(l => {
+      const key = l.TipoCanasillaID || 'OTRO';
+      if (!resumen[key]) {
+        resumen[key] = { nombre: l.TipoCanasillaID ? _getTipoNombre(l.TipoCanasillaID) : 'Otras', cantidad: 0 };
+      }
+      resumen[key].cantidad += parseInt(l.Cantidad || 0, 10);
+    });
+    
+    return { ok: true, resumen };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function _getTipoNombre(id) {
+  try {
+    const tipos = _sheetToObjects(_getSheet('TiposCanasilla'));
+    const t = tipos.find(x => x.ID === id);
+    return t ? t.Descripcion : id;
+  } catch(e) { return id; }
 }

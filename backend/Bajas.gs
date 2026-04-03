@@ -39,11 +39,12 @@ function Bajas_registrar(payload, userInfo) {
     ]);
 
     // 2. Actualizar stock físico de la empresa (Decremento)
+    // 2. Actualizar stock físico de la empresa (Decremento)
     _actualizarStock(
       'Empresa',
       'BASKET_FLOW',
       'Empresa',
-      parseFloat(canasilla.PesoUnitario),
+      tipoCanasillaId,
       -qty, // SIEMPRE NEGATIVO PARA BAJAS
       id,
       userInfo

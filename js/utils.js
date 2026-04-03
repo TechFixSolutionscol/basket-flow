@@ -179,3 +179,22 @@ const Utils = (() => {
     uid, exportCSV, initOfflineDetection
   };
 })();
+
+/**
+ * Helper global para manipulación común de UI
+ */
+const UI = {
+  showModal: (id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'flex';
+  },
+  hideModal: (id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  },
+  loading: (show) => {
+    // Por ahora usamos el toast como indicador simple
+    if (show) Utils.showToast('Procesando...', 'info', 1000);
+  },
+  showToast: (msg, type) => Utils.showToast(msg, type)
+};

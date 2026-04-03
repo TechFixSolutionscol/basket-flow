@@ -9,8 +9,9 @@ function Maestros_getAll(userInfo) {
     const clientes     = _sheetToObjects(_getSheet('Clientes')).filter(r => r.Activo);
     const productos    = _sheetToObjects(_getSheet('Productos')).filter(r => r.Activo);
     const canasillas   = _sheetToObjects(_getSheet('TiposCanasilla')).filter(r => r.Activo);
+    const estibas      = _sheetToObjects(_getSheet('Estibas')).filter(r => r.Activo);
     const config       = _sheetToObjects(_getSheet('Configuracion'));
-    return { ok: true, proveedores, clientes, productos, canasillas, config };
+    return { ok: true, proveedores, clientes, productos, canasillas, estibas, config };
   } catch (err) {
     Logger.log('[Maestros_getAll] ' + err.message);
     return { ok: false, error: err.message };
@@ -25,7 +26,7 @@ function Maestros_save(payload, userInfo) {
   try {
     _requirePermission(userInfo, 'maestros.crud');
     const { tipo, data } = payload;
-    const allowed = ['Proveedores','Clientes','Productos','TiposCanasilla'];
+    const allowed = ['Proveedores','Clientes','Productos','TiposCanasilla','Estibas'];
     if (!allowed.includes(tipo)) throw new Error(`Tipo de maestro inválido: ${tipo}`);
 
     const sheet   = _getSheet(tipo);
